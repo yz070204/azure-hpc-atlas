@@ -12,6 +12,7 @@ Dataset:
 
 ```text
 https://www2.mmm.ucar.edu/wrf/users/benchmark/v422/v42_bench_conus2.5km.tar.gz
+SHA-256: dcae9965d1873c1c1e34e21ad653179783302b9a13528ac10fab092b998578f6
 ```
 
 Domain is 1501×1201×50, timestep 15 seconds, CONUS physics, `radt=3`, one-hour

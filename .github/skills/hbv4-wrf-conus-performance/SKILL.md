@@ -69,3 +69,33 @@ Reuse the measured workflow instead of rediscovering it.
 Report dataset, WRF/compiler/MPI versions, ranks, process grid, flags,
 last-149 seconds/timestep, wall time, output validity, and comparison basis in
 one compact table.
+
+## Human reproduction harness
+
+Prefer `scripts/run-conus-v42.sh` over an ad hoc launch. It verifies the
+official v4.2 archive checksum, full-size HBv4 topology, idle state, fixed
+WRF commit and flags, namelist values, 16×11 decomposition, and ordered
+rank-to-vCPU binding. It
+records input, build, run, and output hashes; refuses to reuse a run directory;
+and fails if inputs change or all 176 ranks do not complete.
+
+```bash
+export PATH=<coherent-mpi-prefix>/bin:$PATH
+curl -fL -o v42_bench_conus2.5km.tar.gz \
+  https://www2.mmm.ucar.edu/wrf/users/benchmark/v422/v42_bench_conus2.5km.tar.gz
+
+.github/skills/hbv4-wrf-conus-performance/scripts/run-conus-v42.sh \
+  <WRF-source-directory> \
+  "$PWD/v42_bench_conus2.5km.tar.gz" \
+  <new-run-directory>
+```
+
+The WRF source must already be built as documented in `references/build.md`.
+The harness intentionally requires a new run directory and never edits the
+archive. Its only namelist change is adding the fixed `nproc_x=16` and
+`nproc_y=11` decomposition; the resulting namelist has a pinned checksum.
+Physics, domain, timestep, and simulation period remain unchanged. Inspect
+`build-manifest.txt`, `run-manifest.txt`,
+`benchmark-results.txt`, `numerical-differences.csv`, and `inputs.sha256` in
+the run directory. Numerical differences are marked `REVIEW_REQUIRED`; the
+harness does not invent a scientific acceptance threshold.
