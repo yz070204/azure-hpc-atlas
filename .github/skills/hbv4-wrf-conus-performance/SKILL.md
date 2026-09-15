@@ -14,25 +14,29 @@ Reuse the measured workflow instead of rediscovering it.
    `Standard_HB176rs_v4` with 176 physical cores and four NUMA nodes.
    Treat reported tool versions and paths as the current image state, not
    fixed requirements.
-2. Read `references/results.md` before retuning. Read `references/build.md`
+2. Before downloading, extracting, or launching, check free space and write
+   access on the filesystem that will hold the archive and run directory.
+   Budget for the compressed archive, extracted inputs, reference and generated
+   outputs, logs, and safety margin; WRF CONUS data can fill a small root disk.
+3. Read `references/results.md` before retuning. Read `references/build.md`
    before building, replacing, or comparing an executable.
-3. Distinguish the datasets:
+4. Distinguish the datasets:
    - v4.2: `v422/v42_bench_conus2.5km.tar.gz`, `radt=3`.
    - v4.4: `v44/v4.4_bench_conus2.5km.tar.gz`, `radt=10`.
    Never compare their timestep rates as the same workload.
-4. For published v4.2 comparisons, use 176 ranks, ordered CPUs `0-175`,
+5. For published v4.2 comparisons, use 176 ranks, ordered CPUs `0-175`,
    `nproc_x=16`, `nproc_y=11`, and the exact v4.2 restart namelist.
-5. Calculate the report metric with:
+6. Calculate the report metric with:
    `scripts/summarize.sh <run-directory>`. It averages field 9 of the last
    149 rank-0 `Timing for main` records; file I/O and initialization are
    excluded.
-6. Use `-O3 -march=znver4` for conservative scientific runs. For benchmark
+7. Use `-O3 -march=znver4` for conservative scientific runs. For benchmark
    performance, the measured winner is `-O3 -march=znver4 -Ofast`; disclose
    relaxed floating-point semantics and validate output.
-7. Run competing configurations sequentially on an idle node. Keep dataset,
+8. Run competing configurations sequentially on an idle node. Keep dataset,
    binary except for the tested flag, rank count, process grid, storage, and
    metric fixed. Repeat finalists before claiming a sub-1% win.
-8. Preserve commands, `configure.wrf`, `namelist.input`, logs, output checks,
+9. Preserve commands, `configure.wrf`, `namelist.input`, logs, output checks,
    and exact versions. Run `scripts/build-manifest.sh <WRF-source-directory>`
    for every executable used in a reported comparison.
 
@@ -50,6 +54,9 @@ Reuse the measured workflow instead of rediscovering it.
   performance-optimal. Measure metadata, restart-read, and output throughput.
 - Discover artifacts from environment overrides and mounted filesystems. Never
   require a particular workspace or mount path.
+- Check `df` for the selected archive and run paths, and test that both are
+  writable before transferring large files. Do not duplicate the archive in
+  the run directory unnecessarily.
 - Base HPC images evolve. Discover the active compiler, MPI, NetCDF, module,
   executable, and library paths on every run; do not reuse a historical
   `/opt/...` path or assume the calibrated versions are still installed.

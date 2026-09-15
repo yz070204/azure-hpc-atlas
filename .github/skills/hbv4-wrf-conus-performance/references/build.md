@@ -52,6 +52,21 @@ Inspect `/opt` first because it is the usual location for Azure HPC image
 stacks, but fall back to modules, `PATH`, environment variables, and other
 installation prefixes when it is absent or different.
 
+## Storage preflight
+
+Check capacity and write access before downloading or extracting:
+
+```bash
+df -h "$ARCHIVE_DIR" "$RUN_PARENT"
+test -w "$ARCHIVE_DIR" && test -w "$RUN_PARENT"
+```
+
+Budget for the compressed archive, extracted inputs, retained reference output,
+new WRF output, logs, and safety margin. The official v4.2 archive alone is
+about 14 GiB, so a typical OS/root volume may be too small. Stage directly on a
+large writable local filesystem and avoid copying the archive into each run
+directory. Recheck free space immediately before launch.
+
 ## Build sequence
 
 Use the paths discovered on the current image; do not assume `/mnt`, `/opt`, a
@@ -83,6 +98,10 @@ Before compilation, inspect `configure.wrf`:
 2. `LIB_EXTERNAL` must include NetCDF-Fortran and NetCDF-C. Use
    `nf-config --flibs` to discover the correct flags; do not assume
    `$NETCDF/lib`, because distributions may use multiarch directories.
+   On Ubuntu/Debian HPC images, the NetCDF Fortran stack often resolves only
+   through `$(shell nf-config --flibs)`. If the linker errors with
+   `undefined reference to nf_*` in `wrf_io.f`, update `configure.wrf` to add
+   that flag set; do not keep a broken binary.
 3. Set the intended `FCOPTIM` exactly:
 
 ```text
