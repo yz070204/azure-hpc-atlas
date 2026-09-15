@@ -7,7 +7,7 @@ archive=${2:?usage: run-conus-v42.sh WRF_SOURCE ARCHIVE RUN_DIRECTORY}
 run=${3:?usage: run-conus-v42.sh WRF_SOURCE ARCHIVE RUN_DIRECTORY}
 archive_sha256=dcae9965d1873c1c1e34e21ad653179783302b9a13528ac10fab092b998578f6
 namelist_sha256=9ee91fe71336adb99b7a4da2dcb9af29b416c5fe69b3a4c2f74da7a82c9c50f4
-wrf_commit=6233639c599119e76fca17dba9ea211af53a0ba9
+wrf_commit=fb60d61cc44e2a2e8b8311f0b79185724010d510
 wrf_source=$(realpath "$wrf_source")
 archive=$(realpath "$archive")
 run=$(realpath -m "$run")
@@ -16,12 +16,12 @@ exe="$wrf_source/main/wrf.exe"
 [[ -x "$exe" ]] || { echo "WRF executable not found: $exe" >&2; exit 2; }
 [[ -d "$wrf_source/run" ]] || { echo "WRF runtime directory not found" >&2; exit 2; }
 [[ "$(git -C "$wrf_source" rev-parse HEAD 2>/dev/null)" == "$wrf_commit" ]] || {
-  echo "WRF source is not the calibrated v4.4.2 commit" >&2
+  echo "WRF source is not the comparison baseline v4.2.2 commit" >&2
   exit 2
 }
 grep -Eq '^FCOPTIM[[:space:]]*=[[:space:]]*-O3 -march=znver4 -Ofast -ftree-vectorize -funroll-loops$' \
   "$wrf_source/configure.wrf" || {
-  echo "configure.wrf does not contain the calibrated optimization flags" >&2
+  echo "configure.wrf does not contain the comparison baseline optimization flags" >&2
   exit 2
 }
 [[ -f "$archive" ]] || { echo "benchmark archive not found: $archive" >&2; exit 2; }

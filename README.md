@@ -34,3 +34,16 @@ The skill uses the installed Azure HPC diagnostics as an optional evidence
 collector, not a blanket health test. It checks the local version, avoids
 automatic updates and benchmarks, and interprets results against the detected
 SKU. See the [collector procedure and limitations](.github/skills/hpc-atlas-firstline-triage/references/azure-hpc-diagnostics.md).
+
+## Run WRF without an AI assistant
+
+Start with the [WRF CONUS runbook](.github/skills/hbv4-wrf-conus-performance/SKILL.md).
+It follows **Check -> Build -> Run -> Review**, with explicit paths, checkpoints,
+and recovery steps. The default uses WRF 4.2.2 and the v4.2 CONUS dataset on
+one HBv4 node, preferring the original dependency versions and documenting any
+approved exceptions. A separate four-node MPI/IB workflow is deferred.
+This is not a universal WRF installer. A thin build helper uses the selected
+stack, checks compatibility, and preserves stage logs; the run script
+handles launch and post-run reporting. Neither requires an AI subscription.
+Historical results and alternative configurations are kept separate from the
+default path.

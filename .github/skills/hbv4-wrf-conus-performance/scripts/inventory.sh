@@ -31,7 +31,7 @@ for tool in gcc gfortran mpicc mpif90 mpirun nc-config nf-config; do
 done
 
 if command -v module >/dev/null 2>&1; then
-  modules=$(module -t list 2>&1 | paste -sd, -)
+  modules=$( (module -t list 2>&1 || true) | paste -sd, - )
   printf 'loaded_modules=%s\n' "${modules:-none}"
 else
   printf 'loaded_modules=module-command-unavailable\n'
@@ -45,8 +45,8 @@ if [[ -d /opt ]]; then
   find /opt -xdev -maxdepth 7 -type f \
     \( -name mpirun -o -name mpicc -o -name mpif90 -o \
        -name hpcx-init.sh -o -name nf-config -o -name nc-config \) \
-    -print 2>/dev/null |
-    awk '!seen[$0]++ && count < 30 {print "opt_stack_candidate=" $0; count++}'
+    -print 2>/dev/null | \
+    awk '!seen[$0]++ && count < 30 {print "opt_stack_candidate=" $0; count++}' || true
 fi
 
 declare -a roots=()
@@ -62,14 +62,16 @@ done < <(findmnt -rn -o TARGET,FSTYPE)
 
 printf '%s\n' "${roots[@]}" | awk '!seen[$0]++' |
 while read -r root; do
+  [[ -d "$root" ]] || continue
   find "$root" -xdev -maxdepth 6 \
     \( -name wrf.exe -o -name launcher.log -o -name benchmark-results.txt \
        -o -name run_conus.sh -o -name 'v*_bench_conus2.5km.tar.gz' \) \
     -print 2>/dev/null || true
-done | awk '!seen[$0]++ && count < 40 {print "candidate=" $0; count++}'
+done | awk '!seen[$0]++ && count < 40 {print "candidate=" $0; count++}' || true
 
 if [[ "$sku" != Standard_HB176rs_v4 || "$cores" != 176 || "$numa" != 4 ]]; then
   printf 'applicability=FAIL\n'
   exit 2
 fi
 printf 'applicability=PASS\n'
+exit 0

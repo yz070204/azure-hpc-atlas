@@ -1,12 +1,30 @@
-# Calibrated HBv4 WRF results
+# Historical HBv4 WRF results
 
-Observed on `Standard_HB176rs_v4`, 176 physical Zen 4 cores, four NUMA nodes,
+Local measurements below used WRF 4.4.2 on `Standard_HB176rs_v4`,
+176 physical Zen 4 cores, four NUMA nodes,
 Ubuntu 24.04, GCC/GFortran 13.3, and Open MPI 5.0.10.
 
 These are observations, not guarantees. Rerun after image, compiler, MPI,
 firmware, or WRF changes.
 
-## Exact v4.2 workload
+The current runbook targets WRF 4.2.2 with the same v4.2 dataset. Do not
+relabel these local 4.4.2 timings or use them as a measured baseline for the
+new default. The separately identified external report below also has its own
+toolchain. A new comparable result must record all remaining differences.
+
+Historical local build provenance:
+
+```text
+WRF v4.4.2 commit: 6233639c599119e76fca17dba9ea211af53a0ba9
+NetCDF-C: 4.9.2
+NetCDF-Fortran: 4.5.4
+Winning wrf.exe SHA-256: fdbe76eb664a59de4cf73a8a8b6aa70d8f3821a7c0d2d4a907e4e6647da3716d
+```
+
+The executable hash is specific to that build environment, not an acceptance
+hash for a new WRF 4.2.2 build.
+
+## v4.2 dataset with WRF 4.4.2
 
 Dataset:
 
