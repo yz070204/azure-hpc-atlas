@@ -51,8 +51,18 @@ Attach only relevant outputs:
 - Benchmark provenance and raw result
 - Same-command comparison from another node, if available
 
+If the installed Azure HPC collector was used, include its version and SHA-256,
+exact flags, UTC collection time, exit status, and relevant collection errors
+or skipped sections. Identify the private archive location and distinguish
+collected evidence from supplemental checks (especially extended CPU topology
+and actual performance measurements). Follow `azure-hpc-diagnostics.md`.
+
 Do not attach credentials, access tokens, customer workload data, or broad
 system logs unrelated to the symptom.
+Do not attach the collector's raw tarball automatically: it can contain full
+journals, network/VM identifiers, and expanded shell-trace data. Prepare only
+reviewed, relevant, redacted evidence for sharing through an approved support
+channel, with user approval.
 
 ## Actions already attempted
 

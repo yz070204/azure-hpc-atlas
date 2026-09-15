@@ -61,6 +61,20 @@ Record:
 Run on an otherwise idle node when possible. Warm-up behavior and cache state
 must be consistent between comparisons.
 
+When investigating a user's slow run, reconstruct its actual parameters from
+scoped launch scripts, job records, logs, and permitted runtime evidence
+before proposing replacements. Preserve provenance and distinguish requested
+settings from effective settings. Do not assume the current shell or an
+edited script represents the historical run. Avoid unrelated users' data,
+whole-environment dumps, and secrets.
+
+Use the low-application-performance procedure in `hpc-atlas-firstline-triage`
+to separate configuration, inherited session state, resource limits, and
+competing work. A fresh shell is not an idle VM and may retain affinity or
+cgroup limits. Use an explicit launch environment and an approved idle or
+exclusive interval rather than killing jobs, disabling services, or rebooting.
+Obtain approval and a bounded run budget before workload experiments.
+
 ### 3. Characterize before tuning
 
 Determine the dominant behavior using the lightest available evidence:
@@ -152,6 +166,13 @@ Preserve the user's scientific and operational requirements.
 Change one primary factor per experiment. Keep all other conditions fixed.
 Repeat finalists when run-to-run variance could change the conclusion.
 
+Measure node activity alongside runs when contention is suspected. Separate
+configuration changes, launch-environment changes, and busy/idle conditions;
+changing them together cannot establish which caused an improvement. Preserve
+the original baseline and explain why it underperformed when the evidence
+supports attribution. If only a candidate run succeeds, distinguish that
+success from an unresolved original failure.
+
 Use:
 
 ```text
@@ -201,6 +222,7 @@ Then provide:
 ```text
 Bottleneck assessment:
 Best validated configuration:
+Original-run gap and supporting evidence:
 Improvement over baseline:
 Confidence and scope:
 Remaining uncertainty:
@@ -209,3 +231,6 @@ Next highest-value experiment:
 
 If no controlled measurement was performed, call recommendations
 `hypotheses`, not optimizations.
+Use "best validated configuration" only within the tested workload, input,
+SKU, scale, and candidate set; do not claim a universal optimum. Include an
+exact reproducible launch command, relevant environment, and load conditions.

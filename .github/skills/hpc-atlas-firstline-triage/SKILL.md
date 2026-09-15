@@ -1,6 +1,6 @@
 ---
 name: hpc-atlas-firstline-triage
-description: Perform self-service and first-line readiness or performance triage for Azure HPC VMs. Use when a user asks why a VM, benchmark, MPI job, or HPC application is slow; when a VM is missing an expected capability, has unexpected CPU or NUMA topology, cannot see InfiniBand, or needs evidence-based classification before escalation.
+description: Perform self-service and first-line readiness or performance triage for Azure HPC VMs. Use for requests such as "check this VM", "check readiness", "check IB", or "why is my performance bad", HPC health checks, running or interpreting Azure HPC diagnostics under /opt/azurehpc/diagnostics, slow benchmarks, MPI jobs or HPC applications, missing capabilities, unexpected CPU or NUMA topology, or missing InfiniBand.
 ---
 
 # HPC Atlas first-line triage
@@ -22,10 +22,46 @@ resolve or classify the issue.
 - Run one diagnostic branch at a time.
 - Record exact commands and preserve relevant output.
 - Ask before any state-changing or potentially disruptive action.
+- Ask before privileged broad log collection; keep raw evidence private and
+  local, and never upload it automatically.
 - Do not classify a case as a hardware failure.
 
 Read `references/evidence-matrix.md` when choosing a diagnostic branch. Read
 `references/escalation-bundle.md` before preparing an escalation.
+Read `references/azure-hpc-diagnostics.md` before invoking the installed
+collector or interpreting one of its bundles.
+
+## Natural-language entry points
+
+Users do not need a support case, diagnostic command, or detailed prompt.
+Route short requests by intent, not exact wording or capitalization:
+
+| Example prompt | Starting branch |
+|---|---|
+| "Check this VM" or "Check this HPC VM" | Read-only identity and general readiness |
+| "Check readiness" | Read-only identity and general readiness |
+| "Check IB" or "Check IB on this VM" | Exact SKU and documented IB capability, then device/driver/link checks only if supported |
+| "Why is my performance bad?" or "Why is my MPI job slow?" | Read-only inventory and workload/measurement context, then the implicated performance branch |
+| "Use the HPC diagnostics in /opt" | Assess collector usefulness and obtain approval before broad collection |
+| "Review this HPC diagnostic archive: <path>" | Interpret existing evidence and identify collection gaps |
+
+Use the affected VM identified in the conversation, or the current VM when
+none is specified. Do not interpret a short prompt as permission to scan
+other nodes, run benchmarks, change settings, or upload evidence.
+
+For an unspecified health check, start with identity, CPU/NUMA, and relevant
+device readiness. Report the checked scope, not a whole-node health verdict.
+Do not invent a performance symptom or launch benchmarks to fill in missing
+workload information. Reuse relevant existing evidence before collecting more.
+
+For a vague performance complaint, use available context and read-only
+evidence to identify the workload, launch command, observed metric, and
+comparison baseline. If essential context remains missing, report what is
+known and request only the missing information needed for the next step.
+Do not assume WRF, STREAM, or an IB bottleneck, and do not treat a readiness
+pass as proof of good application performance. Use
+`hpc-atlas-workload-optimization` when workload-specific profiling or
+controlled tuning is needed.
 
 ## Phase 1: Frame and inventory
 
@@ -87,7 +123,33 @@ prepare an escalation bundle.
 
 Select the smallest test that distinguishes the leading hypotheses.
 
-### Missing InfiniBand
+### Optional installed Azure HPC diagnostics
+
+Check for `/opt/azurehpc/diagnostics/gather_azhpc_vm_diagnostics.sh`. Its best
+use is a timestamped VM/driver/RDMA evidence snapshot when targeted checks
+leave a question unresolved, the user requests a bundle, or escalation needs
+one. It is not the default first command, a comprehensive health checker, or
+a calibrated HBv4 performance test.
+
+Follow the diagnostics reference for source/version inspection, approval,
+CPU-only collection with `--offline --no-update --mem-level=0`, and output
+review. Those flags do not make the collector safe on GPU VMs. Do not run its
+GPU path without separate review and approval.
+
+If absent, blocked by privileges, or incomplete, say so and continue with
+available targeted read-only checks. Do not automatically install, update,
+repair, or rerun a larger diagnostic. A successful process exit or archive
+creation is not a readiness pass.
+
+### InfiniBand readiness or missing InfiniBand
+
+Treat "Check IB" or "Check IB on this VM" as a capability-first request, not an instruction
+to assume InfiniBand exists. Detect the exact SKU from live metadata and
+verify its documented InfiniBand/RDMA capability before running IB tools.
+Do not infer support solely from the SKU name, an installed driver, or the
+collector's SKU heuristics. If the exact SKU or its capability cannot be
+verified, report `inconclusive` and identify the missing evidence rather than
+declaring IB unsupported.
 
 Progress in this order:
 
@@ -100,6 +162,13 @@ Progress in this order:
 
 Stop when one step establishes the cause. Do not run a full benchmark merely
 to prove that an unsupported VM size lacks InfiniBand.
+
+When the specification confirms that the detected SKU does not support IB,
+return `capability-mismatch` and stop this branch before PCI/driver diagnostics
+or broad log collection. State the exact SKU and capability source, explain
+that absent IB is expected for this size, and recommend an IB-capable SKU if
+the workload requires RDMA. Do not install drivers, resize the VM, or prepare
+a platform/node-health escalation for an unsupported capability.
 
 ### Low STREAM bandwidth
 
@@ -117,9 +186,86 @@ of node health.
 
 ### Low application performance
 
-First reproduce the application's own metric under documented conditions.
-Then isolate only the subsystem supported by evidence. Use the
-`hbv4-wrf-conus-performance` skill for its calibrated WRF CONUS workload.
+Explain the user's performance gap, not just whether a different benchmark
+runs well. Use `hbv4-wrf-conus-performance` for its calibrated WRF CONUS
+workload and `hpc-atlas-workload-optimization` for controlled experiments.
+
+#### Reconstruct the actual run
+
+Before asking the user to re-enter parameters, inspect relevant evidence
+already available in the conversation and workload directory: launch/job
+scripts, application configuration, run logs, and scheduler records for the
+identified job. Where permitted, inspect that job's live command, effective
+affinity, resource allocation, and relevant environment variables.
+
+Capture ranks, threads, process grid, binding, memory policy, executable and
+library identity, input, output/checkpoint settings, and storage paths.
+Distinguish requested settings from effective runtime settings and label each
+source. A current script or shell is not proof of what an earlier job used.
+Do not search unrelated directories, other users' shell histories, or dump
+whole process environments. Redact secrets in arguments and settings. If
+historical launch evidence is missing, report the gap instead of guessing.
+
+Compare the actual settings with a validated recipe only when SKU, workload
+version, input, and scale match. Otherwise propose a candidate configuration
+as a hypothesis. Provide the exact relevant differences and their expected
+effects; do not call a recipe universally optimal.
+
+#### Separate configuration, session state, and contention
+
+Check CPU usage, memory pressure, swapping, I/O wait, and competing jobs or
+processes using available read-only tools. Also check scheduler/cgroup CPU
+and memory limits and the job's effective CPU set. Record activity during
+the measured interval where possible; one idle snapshot after a slow run
+cannot rule out earlier contention.
+
+A fresh shell can help isolate inherited MPI/OpenMP variables, modules,
+library paths, limits, or affinity, but it does not make the VM idle or
+remove scheduler/cgroup restrictions. Define a clean session as a separate,
+documented launch environment with explicit required modules, paths, and
+relevant variables, preserving required scheduler and authentication context.
+Capture differences before changing anything; do not blindly clear the
+environment, rewrite shell startup files, or assume a new login resets it.
+
+For contention, prefer waiting for an idle interval or requesting an approved
+exclusive allocation. Do not kill competing jobs, disable services, clear
+system caches, reboot, or redeploy to manufacture a clean baseline.
+
+#### Attribute the improvement
+
+Obtain approval and a bounded run budget before reproducing the application's
+own metric. Preserve the user's baseline command and outputs. Compare one
+factor at a time: original versus candidate settings under equivalent load;
+inherited versus explicitly controlled launch environment with the same
+settings; or busy versus idle conditions with the same configuration when
+safe evidence is available. Do not create interfering workloads just to
+reproduce contention.
+
+Keep binary, input, metric, correctness requirements, and warm-up/cache
+conditions equivalent unless one is the explicit tested factor. Record
+individual results and repeat enough to distinguish the effect from variance.
+If configuration, environment, and load all changed together, a faster result
+shows recovery under those conditions, not which change caused it.
+
+Report a compact comparison:
+
+| Run | Command and effective settings | Session/load conditions | Metric and repetitions | Variance | Correctness |
+|---|---|---|---|---|---|
+| User baseline |  |  |  |  |  |
+| Controlled candidate |  |  |  |  |  |
+
+Finish with the evidence-backed explanation of why the baseline missed the
+comparison result, the best validated command/configuration and its scope,
+the measured improvement, and how to reproduce it. Distinguish confirmed
+causes, contributing factors, and untested hypotheses. Reproduced contention
+or environment/configuration effects are `configuration-or-software`; merely
+seeing another process is not enough to establish causation.
+
+If only the candidate works and the original failure cannot be reproduced,
+report the demonstrated result but leave the original cause `inconclusive`.
+A good controlled run does not rule out an intermittent problem. If no run
+was approved, provide a proposed command and remaining evidence needs, not a
+claimed optimization or resolution.
 
 ## Classification rules
 
@@ -145,6 +291,7 @@ Symptom:
 Expected behavior:
 Tests performed:
 Key evidence:
+Evidence location and collection gaps:
 Classification:
 Confidence:
 Smallest next step:

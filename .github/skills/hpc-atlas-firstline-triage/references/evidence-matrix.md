@@ -12,9 +12,16 @@ tools available in the active image and record their versions.
 | STREAM bandwidth low | Was the validated topology and placement used? | VM size, CPU/NUMA topology, affinity, memory policy, benchmark provenance | Software/configuration or continue | Stop if corrected placement restores performance |
 | STREAM remains low | Is the result repeatable under controlled conditions? | Multiple idle-node runs with identical command and placement | Expected, inconclusive, or possible platform/node health | Stop when variance or repeatability supports classification |
 | Application slow | Is the comparison equivalent? | Version, input, binary, libraries, launch command, metric, baseline | Software/configuration or continue | Stop if comparison mismatch explains result |
+| User run slower than a validated configuration | What settings actually took effect? | Scoped job/script/log evidence, effective ranks/threads/binding/environment, matched baseline and one-factor candidate runs | Software/configuration or inconclusive | Attribute the gap only when controlled results support the specific change |
+| Performance varies with session or other activity | Did environment, resource limits, or competing load differ during the run? | Relevant environment differences, CPU sets/cgroup limits, interval load/pressure/I/O evidence, equivalent controlled repeats | Software/configuration or inconclusive | Separate fresh-shell effects from idle-node effects; one faster run after changing both is not a root cause |
 | Application remains slow | Which subsystem is implicated? | Application profile or targeted CPU, memory, network, or storage evidence | Inconclusive or subsystem-specific follow-up | Stop before unrelated broad diagnostics |
 | NUMA topology differs | Is the exact size within the validated topology scope? | Detected SKU and live topology | Wrong-size, software/configuration, or possible platform/node health | Stop if constrained-core or unsupported scope explains it |
 | Full-size HBv4/HX `lscpu -e` signature differs | Is the detected SKU one of the explicitly covered full-size SKUs? | Complete `lscpu -e`, SKU, image, kernel, online CPUs, and boot configuration | Software/configuration or possible platform/node health | Always report the discrepancy; escalate when no identified guest cause explains it |
+| Installed HPC diagnostic reports an issue or creates a bundle | Is the tool version applicable, and did the relevant collection actually complete? | Invocation, version/hash, transcript, stderr, relevant raw members, and targeted corroboration | Inconclusive or evidence-supported classification | Stop if a tool limitation or missing utility explains the message; archive creation alone is not a health pass |
+
+For installed collector selection, safe invocation, and file-level
+interpretation, use [Azure HPC diagnostics](azure-hpc-diagnostics.md). Prefer
+targeted checks over broad collection, and reuse an existing relevant bundle.
 
 ## Evidence quality
 
