@@ -42,7 +42,7 @@ It follows **Check -> Build -> Run -> Review**, with explicit paths, checkpoints
 and recovery steps. The default uses WRF 4.2.2 and the v4.2 CONUS dataset on
 one HBv4 node, preferring the original dependency versions and documenting any
 approved exceptions. A separate four-node MPI/IB workflow is deferred.
-This is not a universal WRF installer. A thin build helper uses the selected
+This is not a universal WRF installer. A Bash build script uses the selected
 stack, checks compatibility, and preserves stage logs; the run script
 handles launch and post-run reporting. Neither requires an AI subscription.
 Historical results and alternative configurations are kept separate from the

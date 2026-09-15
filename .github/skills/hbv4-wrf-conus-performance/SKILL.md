@@ -122,11 +122,12 @@ an idle VM. For unexplained contention or environment differences, use
 ## 2. Build or reuse
 
 Follow [build.md](references/build.md) only if no suitable executable exists.
-Prefer `scripts/build-wrf.py`: it reuses the selected image stack, checks small
-MPI/NetCDF compile/link probes, discovers the GNU dmpar menu entry, configures
-and compiles WRF, and saves build evidence. It never installs dependencies,
-downloads source/data, purges modules, or chooses a historical `/opt` prefix.
-Python's standard library is sufficient for this helper.
+Prefer `scripts/build-wrf.sh`: a Bash script with environment preparation,
+configuration and compilation steps. It checks the selected stack, performs
+a small MPI/NetCDF Fortran link probe, discovers the GNU dmpar menu entry,
+and preserves logs. It never installs dependencies, downloads source/data,
+purges modules, or chooses a historical `/opt` prefix. No Python is needed
+for building; Python is used only by the numerical output comparator.
 
 The build reference supplies the default benchmark command with explicit
 `-Ofast` consent and flags. The helper itself defaults to conservative `-O3`;
@@ -195,7 +196,7 @@ correctness, and repeat finalists before claiming a sub-1% improvement.
 | Failure | Smallest safe next step |
 |---|---|
 | Missing metadata/tool/dependency, wrong SKU, busy node, or inadequate space | Explain the failed check; resolve that prerequisite before proceeding |
-| Configure or compile failure | Inspect the reported stage and per-attempt log directory; use the build reference for a justified fix and supported `--resume`, not speculative patches |
+| Configure or compile failure | Inspect the stage log and preserve the source; follow the build reference for a justified fix, not automatic cleanup or speculative retries |
 | Archive or namelist checksum mismatch | Preserve the evidence; verify the selected dataset/path. Never replace the expected checksum with the observed one |
 | Run directory already exists | Inspect it first. Review a completed run, or select a new directory for an approved rerun; never delete it automatically |
 | Launch, binding, or WRF failure | Preserve logs, fix the evidenced cause, and obtain approval for a new run directory |

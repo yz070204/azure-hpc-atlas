@@ -1,5 +1,3 @@
-import importlib.util
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -9,10 +7,7 @@ import textwrap
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts/build-wrf.py"
-SPEC = importlib.util.spec_from_file_location("build_wrf", SCRIPT)
-BUILD = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(BUILD)
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts/build-wrf.sh"
 
 
 TOOLS = r"""#!/usr/bin/env python3
@@ -27,7 +22,10 @@ prefix = os.environ["FAKE_NETCDF"]
 if "--showme:command" in args:
     print("gcc" if name == "mpicc" else ("wrong-compiler" if mode == "wrong-compiler" else "gfortran"))
 elif "--version" in args:
-    print("Open MPI 5.0.10" if name == "mpirun" else name + " 1.0")
+    print({"mpirun": "Open MPI 5.0.10", "nc-config": "netCDF 1.0",
+           "nf-config": "netCDF-Fortran 1.0"}.get(name, name + " 1.0"))
+elif "--all" in args:
+    print(name + " configuration")
 elif "--prefix" in args:
     print(prefix + "-other" if name == "nf-config" and mode == "split-netcdf" else prefix)
 elif "--fflags" in args or "--cflags" in args:
@@ -44,7 +42,8 @@ elif name in ("mpicc", "mpif90"):
 elif name == "ldd":
     print("libnetcdff.so => " + ("not found" if mode == "missing-runtime" else prefix + "/lib/libnetcdff.so"))
 elif name == "perl":
-    print(" 40. (serial) 41. (smpar) 42. (dmpar) 43. (dm+sm) GNU (gfortran/gcc)")
+    compiler = "INTEL (ifort/icc)" if mode == "wrong-menu" else "GNU (gfortran/gcc)"
+    print(os.environ.get("FAKE_MENU_CHOICE", "42") + ". (dmpar) " + compiler)
 elif name == "git":
     if "--is-inside-work-tree" in args:
         sys.exit(1)
@@ -58,7 +57,7 @@ from pathlib import Path
 import sys
 
 answers = sys.stdin.read()
-if answers != "42\n1\n":
+if answers != os.environ.get("FAKE_MENU_CHOICE", "42") + "\n1\n":
     sys.exit(9)
 mode = os.environ.get("FAKE_MODE", "")
 if mode == "configure-fail":
@@ -124,6 +123,8 @@ class BuildTests(unittest.TestCase):
             "PATH": f"{bin_dir}:{os.path.dirname(sys.executable)}:/usr/bin:/bin",
             "HOME": str(self.root),
             "FAKE_NETCDF": str(prefix),
+            "WRF_NETCDF_C_VERSION": "1.0",
+            "WRF_NETCDF_FORTRAN_VERSION": "1.0",
             "LC_ALL": "C",
         }
 
@@ -132,58 +133,48 @@ class BuildTests(unittest.TestCase):
         path.write_text(textwrap.dedent(text))
         path.chmod(0o755)
 
-    def invoke(self, *args, mode="", success=True):
+    def invoke(self, *args, mode="", settings=None, success=True):
         result = subprocess.run(
-            [sys.executable, str(SCRIPT), str(self.source), *args],
-            env={**self.env, "FAKE_MODE": mode}, text=True,
+            ["bash", str(SCRIPT), str(self.source), *args],
+            env={**self.env, "FAKE_MODE": mode, **(settings or {})}, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20,
         )
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
         return result
 
     def latest_logs(self):
-        return max(self.source.glob("atlas-build-*"), key=lambda path: path.stat().st_mtime_ns)
-
-    def test_check_does_not_configure_or_build(self):
-        self.invoke("--check")
-        self.assertFalse((self.source / "configure.wrf").exists())
-        self.assertFalse((self.source / "compile-called").exists())
-        self.assertTrue((self.latest_logs() / "preflight.log").exists())
+        return max(self.source.glob("build-logs.*"), key=lambda path: path.stat().st_mtime_ns)
 
     def test_full_build_and_provenance(self):
-        self.invoke("--jobs", "3", "--fcflags=-O3 -march=znver4 -Ofast")
+        self.invoke(settings={"NPROCS": "3", "WRF_FCFLAGS": "-O3 -march=znver4 -Ofast"})
         text = (self.source / "configure.wrf").read_text()
         self.assertIn("FCOPTIM = -O3 -march=znver4 -Ofast\n", text)
         self.assertNotIn("-f90=", text)
         self.assertNotIn("-cc=", text)
         self.assertEqual((self.source / "compile-called").read_text(), "-j 3 em_real")
         logs = self.latest_logs()
-        for name in ("context.json", "configure.original.wrf", "configure.wrf",
+        for name in ("toolchain.txt", "configure.original.wrf", "configure.wrf",
                      "compile.log", "build-manifest.txt", "outputs.sha256"):
             self.assertTrue((logs / name).is_file(), name)
         self.assertEqual(len((logs / "outputs.sha256").read_text().splitlines()), 2)
-        self.assertEqual(json.loads((logs / "context.json").read_text())["fcflags"],
-                         "-O3 -march=znver4 -Ofast")
+        self.assertIn("WRF_FCFLAGS=-O3 -march=znver4 -Ofast", (logs / "toolchain.txt").read_text())
 
     def test_preflight_failure_cases(self):
         for mode in ("wrong-compiler", "split-netcdf", "missing-runtime"):
             with self.subTest(mode=mode):
-                result = self.invoke("--check", mode=mode, success=False)
+                result = self.invoke(mode=mode, success=False)
                 self.assertIn("BUILD FAILED [preflight]", result.stderr)
                 self.assertFalse((self.source / "compile-called").exists())
-        self.invoke("--check", "--fcflags=-bad-flag", success=False)
+        self.invoke(settings={"WRF_FCFLAGS": "-bad-flag"}, success=False)
         (self.root / "bin/mpif90").unlink()
-        result = self.invoke("--check", success=False)
+        result = self.invoke(success=False)
         self.assertIn("Missing tool: mpif90", result.stderr)
 
     def test_requested_dependency_versions_are_enforced(self):
-        result = self.invoke("--check", "--require-netcdf-c", "4.7.4", success=False)
-        self.assertIn("nc-config requires 4.7.4", result.stderr)
-        result = self.invoke("--check", "--require-netcdf-fortran", "4.5.3", success=False)
-        self.assertIn("nf-config requires 4.5.3", result.stderr)
-        self.invoke("--check", "--require-netcdf-c", "1.0", "--require-netcdf-fortran", "1.0")
-        context = json.loads((self.latest_logs() / "context.json").read_text())
-        self.assertEqual(context["required_versions"], {"nc-config": "1.0", "nf-config": "1.0"})
+        result = self.invoke(settings={"WRF_NETCDF_C_VERSION": "4.7.4"}, success=False)
+        self.assertIn("Expected NetCDF-C 4.7.4", result.stderr)
+        result = self.invoke(settings={"WRF_NETCDF_FORTRAN_VERSION": "4.5.3"}, success=False)
+        self.assertIn("Expected NetCDF-Fortran 4.5.3", result.stderr)
         self.assertFalse((self.source / "compile-called").exists())
 
     def test_configure_failure_stops_before_compile(self):
@@ -201,64 +192,50 @@ class BuildTests(unittest.TestCase):
         self.invoke()
         original = (self.source / "configure.wrf").read_bytes()
         result = self.invoke(success=False)
-        self.assertIn("already configured", result.stderr)
+        self.assertIn("already configured/built", result.stderr)
         self.assertEqual((self.source / "configure.wrf").read_bytes(), original)
 
-    def test_resume_failed_build(self):
-        self.invoke(mode="compile-fail", success=False)
-        previous = self.latest_logs()
-        self.invoke("--resume", str(previous), "--jobs", "2")
-        self.assertTrue((self.source / "main/wrf.exe").is_file())
-        self.assertEqual((self.source / "compile-called").read_text(), "-j 2 em_real")
-
-    def test_resume_rejects_changed_flags_and_config(self):
-        self.invoke(mode="compile-fail", success=False)
-        previous = self.latest_logs()
-        result = self.invoke("--resume", str(previous), "--fcflags=-O2", success=False)
-        self.assertIn("Toolchain/environment/flags changed", result.stderr)
-        with (self.source / "configure.wrf").open("a") as file:
-            file.write("# edited\n")
-        result = self.invoke("--resume", str(previous), success=False)
-        self.assertIn("configure.wrf changed", result.stderr)
-
-    def test_stale_executables_cannot_hide_silent_compile_failure(self):
-        self.invoke()
-        previous = self.latest_logs()
-        result = self.invoke("--resume", str(previous), mode="silent-fail", success=False)
-        self.assertIn("did not produce executable", result.stderr)
-        self.assertTrue((self.latest_logs() / "previous-wrf.exe").is_file())
+    def test_compile_failures_are_not_success(self):
+        result = self.invoke(mode="silent-fail", success=False)
+        self.assertIn("did not produce main/wrf.exe", result.stderr)
         self.assertFalse((self.source / "main/wrf.exe").exists())
 
+    def test_failed_compile_preserves_logs_and_objects(self):
+        result = self.invoke(mode="compile-fail", success=False)
+        self.assertIn("BUILD FAILED [compile]", result.stderr)
+        self.assertIn("exit 8", result.stderr)
+        self.assertTrue((self.source / "partial.o").is_file())
+        self.assertTrue((self.latest_logs() / "compile.log").is_file())
+
+    def test_help_needs_no_build_environment(self):
+        result = subprocess.run(["bash", str(SCRIPT), "--help"], env=self.env,
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Usage: bash build-wrf.sh WRF_SOURCE", result.stdout)
+        self.assertFalse(list(self.source.glob("build-logs.*")))
+
     def test_compile_deadline(self):
-        result = self.invoke("--timeout", "1", mode="compile-timeout", success=False)
-        self.assertIn("timed out", result.stderr)
+        result = self.invoke(settings={"BUILD_TIMEOUT": "1"}, mode="compile-timeout", success=False)
+        self.assertIn("BUILD FAILED [compile]", result.stderr)
+        self.assertIn("exit 124", result.stderr)
         self.assertTrue((self.latest_logs() / "compile.log").exists())
         pid = int((self.source / "child.pid").read_text())
         status = Path(f"/proc/{pid}/stat")
         if status.exists():
             self.assertEqual(status.read_text().split()[2], "Z", "Child is still running")
 
-    def test_resume_preserves_symlinked_output_contents(self):
-        self.invoke()
-        previous = self.latest_logs()
-        executable = self.source / "main/wrf.exe"
-        target = self.source / "original-wrf.exe"
-        executable.rename(target)
-        executable.symlink_to("../original-wrf.exe")
-        self.invoke("--resume", str(previous), mode="silent-fail", success=False)
-        saved = self.latest_logs() / "previous-wrf.exe"
-        self.assertFalse(saved.is_symlink())
-        self.assertEqual(saved.read_bytes(), target.read_bytes())
-
     def test_bad_argument_fails_before_creating_logs(self):
-        self.invoke("--jobs", "0", success=False)
-        self.assertFalse(list(self.source.glob("atlas-build-*")))
+        self.invoke(settings={"NPROCS": "0"}, success=False)
+        self.assertFalse(list(self.source.glob("build-logs.*")))
 
     def test_menu_selection_is_not_fixed(self):
-        self.assertEqual(BUILD.gnu_dmpar_choice(
-            " 7. (serial) 9. (dmpar) GNU (gfortran/gcc)\n"), "9")
-        with self.assertRaises(BUILD.BuildError):
-            BUILD.gnu_dmpar_choice(" 34. (dmpar) INTEL (ifort/icc)\n")
+        self.invoke(settings={"FAKE_MENU_CHOICE": "9"})
+        self.assertTrue((self.source / "main/wrf.exe").is_file())
+
+    def test_unknown_menu_stops_before_configure(self):
+        result = self.invoke(mode="wrong-menu", success=False)
+        self.assertIn("Expected one GNU dmpar menu entry", result.stderr)
+        self.assertFalse((self.source / "configure.wrf").exists())
 
     def test_runner_requires_v422_and_comparison_flags(self):
         (self.source / "main").mkdir()
