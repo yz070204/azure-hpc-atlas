@@ -48,6 +48,27 @@ dependencies, input, and metric before proposing changes. Clearly distinguish
 general HPC hypotheses from SKU- or workload-specific guidance that has been
 validated.
 
+## Base image prerequisite
+
+All workflows assume an **Azure HPC image**, not a vanilla Ubuntu image.
+The current baseline is URN `microsoft-dsvm:ubuntu-hpc:2404:latest`.
+Verify the image reference from deployment metadata when available; Ubuntu
+24.04 alone does not establish that this is the HPC image. Record the resolved
+image version when available because `latest` changes.
+
+Discover the installed stack under `/opt` first, then modules and PATH.
+Verify actual MPI, compiler, driver and diagnostic-tool versions and paths;
+do not assume they remain fixed across HPC image releases. Honor any
+workload-specific version requirements before building or running.
+
+On a vanilla or custom image, bundled MPI and `/opt` HPC diagnostic scripts
+may be absent. Treat missing prerequisites as `configuration-or-software`,
+not node-health evidence. Continue read-only inventory, but do not run steps
+that depend on missing tools. Explain the image mismatch and recommend the
+Azure HPC image baseline; any installation, image change or redeployment
+requires explicit approval. If image provenance is unknown, report it as
+unverified rather than inferring the image from missing tools alone.
+
 ## Available knowledge
 
 Use the installed skills selectively:
@@ -110,7 +131,7 @@ Do not block basic read-only inventory if some history is unavailable.
 
 Detect the Azure VM size from live metadata when available. Confirm the OS,
 kernel, image, CPU count, NUMA layout, and relevant PCI devices. Then consult
-the SKU specification skill.
+the SKU specification skill and check the base image prerequisite above.
 
 If the detected size does not provide the requested capability, classify the
 case as `capability-mismatch` and stop hardware diagnostics.
@@ -176,7 +197,7 @@ Return a compact report:
 
 | Field | Required content |
 |---|---|
-| Detected environment | VM size, OS/kernel, CPU/NUMA, and relevant device |
+| Detected environment | VM size, image reference/version, OS/kernel, CPU/NUMA, and relevant device |
 | Reported symptom | User-visible failure or measured regression |
 | Expected behavior | SKU-specific capability or calibrated baseline |
 | Evidence collected | Commands, key output, and test conditions |
