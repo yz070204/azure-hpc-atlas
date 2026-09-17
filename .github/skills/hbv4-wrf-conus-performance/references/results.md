@@ -1,6 +1,6 @@
 # Historical HBv4 WRF results
 
-Local measurements below used WRF 4.4.2 on `Standard_HB176rs_v4`,
+Measurements below used WRF 4.4.2 on `Standard_HB176rs_v4`,
 176 physical Zen 4 cores, four NUMA nodes,
 Ubuntu 24.04, GCC/GFortran 13.3, and Open MPI 5.0.10.
 
@@ -8,17 +8,16 @@ These are observations, not guarantees. Rerun after image, compiler, MPI,
 firmware, or WRF changes.
 
 The current runbook targets WRF 4.2.2 with the same v4.2 dataset. Do not
-relabel these local 4.4.2 timings or use them as a measured baseline for the
-new default. The separately identified external report below also has its own
-toolchain. A new comparable result must record all remaining differences.
+relabel these 4.4.2 timings or use them as a measured baseline for the
+4.2.2 default. Record source, dependency and launch differences in comparisons.
 
-Historical local build provenance:
+Historical build provenance:
 
 ```text
 WRF v4.4.2 commit: 6233639c599119e76fca17dba9ea211af53a0ba9
 NetCDF-C: 4.9.2
 NetCDF-Fortran: 4.5.4
-Winning wrf.exe SHA-256: fdbe76eb664a59de4cf73a8a8b6aa70d8f3821a7c0d2d4a907e4e6647da3716d
+Fastest measured wrf.exe SHA-256: fdbe76eb664a59de4cf73a8a8b6aa70d8f3821a7c0d2d4a907e4e6647da3716d
 ```
 
 The executable hash is specific to that build environment, not an acceptance
@@ -47,10 +46,6 @@ restart. Results use 176 ranks, ordered CPUs `0-175`, and process grid 16×11.
 `znver4`. Switching `znver2` to `znver4` was 0.13% at `-O3` and 1.25% at
 `-Ofast`.
 
-External report reference for WRF 4.2.2, GCC 9.2.1, HPC-X 2.15, `znver2
--Ofast`: 2.621916 s/step at 176 ranks. The fastest local build measured
-1.59% faster, but versions differ.
-
 ## v4.4 workload
 
 Dataset:
@@ -67,8 +62,8 @@ Same grid and timestep, but `radt=10`; therefore it is lighter than v4.2.
 | 176 ranks, 16×11 | 2.207473 | 13:56.51 |
 | 168 ranks, 14×12, local NVMe | 2.185455 | 13:37.00 |
 
-The 168-rank lead was about 1% from one trial. Use 176 ranks for direct
-comparison with the existing report.
+The 168-rank lead was about 1% from one trial. Keep 176 ranks for the
+documented single-node baseline and repeat finalists before adopting a change.
 
 ## Artifact discovery
 
@@ -78,7 +73,7 @@ search the home directory and non-root local filesystems for likely artifacts.
 
 ## Storage
 
-RAID0 NVMe is not required for the report-compatible `Timing for main` metric;
+RAID0 NVMe is not required for the runbook's `Timing for main` metric;
 that metric excludes initialization and WRF output writes. Fast local scratch
 can reduce restart staging and end-to-end wall time. Treat RAID0 as temporary,
 non-redundant storage and obtain approval before formatting devices.
@@ -124,8 +119,6 @@ approval; both affect data durability and system configuration.
 
 ## Numerical caution
 
-`-Ofast` relaxes IEEE behavior. The measured WRF 4.4 `znver4 -Ofast` output
-differences versus `znver4 -O3` were broadly similar in scale to documented
-compiler-to-compiler benchmark differences, but this does not prove suitability
-for every scientific production workflow. Use `-O3` when strict reproducibility
-is required.
+`-Ofast` relaxes IEEE behavior. Compare numerical output with an appropriate
+reference and define acceptance tolerances for the scientific workflow before
+using it in production. Prefer `-O3` when strict reproducibility is required.

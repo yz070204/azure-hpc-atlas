@@ -78,7 +78,11 @@ it does not automatically run a tuning sweep or change the baseline.
 
 The standalone helpers retain build/run provenance, verify numerical output
 and runtime thread binding, and summarize repeated Copy/Scale/Add/Triad
-bandwidth measurements. AMD license authorization and an approved idle-node
+bandwidth measurements. The [script layout](.github/skills/hbv4-stream-performance/references/usage.md#script-layout)
+keeps compiler and launch commands in the entry scripts, with separate
+checks, logging and THP helpers. A reusable Bash/awk checker in the topology
+skill replaces embedded topology code; Python handles result parsing only.
+AMD license authorization and an approved idle-node
 run budget are required. Original and tuned profiles require separate THP
 approval and restore the original values afterward. The original source
 recipe additionally requires explicit approval to drop host caches before each
@@ -86,9 +90,7 @@ trial; prebuilt and tuned profiles do not drop caches. The explicitly selected
 `normalized-176` comparison profile leaves THP unchanged. No cloud uploads or
 system compiler replacement are performed.
 
-Results describe tuned STREAM workloads, not a universal HBv4 optimum or a
-node-health verdict. The historical 280M and prebuilt 650M sizes fall below
-STREAM's four-times-total-L3 sizing rule on this node; 1.3B meets that size
-criterion but is a separate workload. See the
+Results are workload-specific observations, not performance guarantees.
+Use matching array sizes and launch settings for comparisons. See the
 [diagnosis reference](.github/skills/hbv4-stream-performance/references/diagnosis.md)
-for measured baselines and interpretation.
+for measured baselines, array sizing and interpretation.

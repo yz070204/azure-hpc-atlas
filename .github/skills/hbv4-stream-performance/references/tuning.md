@@ -2,8 +2,8 @@
 
 ## Optional tuning recommendation and confidence
 
-For the user's **280,000,000-double-per-array, 100-iteration** STREAM workload,
-when tuning is explicitly requested, recommend **144 threads, six per physical CCD, THP allocation/defrag `always`,
+For the **280,000,000-double-per-array, 100-iteration** source workload,
+optional tuning uses **144 threads, six per physical CCD, THP allocation/defrag `always`,
 no cache drops**, keeping AOCC 4.0.0 and the original flags.
 Routine runs retain the original source recipe at 176 threads with THP always;
 see [current workflow defaults](../SKILL.md). Do not apply tuning automatically.
@@ -43,13 +43,13 @@ The experiment harness sourced the vendor AOCC environment in a subshell.
 It capped every trial at 120 seconds plus a five-second termination grace.
 
 Three randomized blocks selected candidates; four separate randomized blocks
-confirmed finalists. Seeds were fixed in retained plans, not chosen after
-seeing results. All variants were interleaved within each phase to reduce
+confirmed finalists. Randomization seeds were fixed before measurements.
+All variants were interleaved within each phase to reduce
 drift; build work did not overlap performance runs. Pre-trial `vmstat` samples
 had to show at least 98% CPU idle; observed samples were around 99%.
 This is a quiet shared VM, not scheduler-enforced exclusivity or proof of
 zero transient contention. Effective CPU/memory allocation and cgroup limits
-were checked earlier in the same session.
+were checked before benchmarking.
 
 There were **54 timing trials** (15 controls, 15 placement, 20 confirmation,
 four integrated-runner trials) and **four separate diagnostic trials** with
@@ -82,16 +82,14 @@ At 176 threads, the THP best-rate difference was small relative to variability;
 the lower-thread finalists provide clearer THP evidence below.
 
 Cache dropping gave no repeatable advantage in this quiet, low-pressure
-environment, so it is omitted from the recommended profile. No-drop trials
+environment, so it is omitted from the optional tuned profile. No-drop trials
 were interleaved with drop trials; this does not prove equivalence under
 heavy page-cache pressure. The integrated finalist also completed repeated
 runs with no cache-drop calls.
 
-Each 280M array occupies 2.24 GB, each 650M array 5.2 GB. Against approximately
-2.3 GiB aggregate guest-visible L3, both are below STREAM's usual four-times-
-available-cache size guidance **per array**. The 1.3B control occupies 10.4 GB
-per array and clears that approximate size criterion. It is still not a
-certified STREAM submission or direct memory-controller measurement.
+Each 280M array occupies 2.24 GB, each 650M array 5.2 GB, and each 1.3B array
+10.4 GB. Choose the workload according to the
+[array-sizing guidance](diagnosis.md#choosing-array-size).
 
 **Interpretation, not proof:** array size can change cache reuse, translation
 behavior and timing variability. STREAM counts algorithmic bytes, not DRAM
@@ -210,10 +208,9 @@ remained the original 280M/100 artifact with SHA-256
 
 ## Follow-up: 650M/100 source build at balanced 144 threads
 
-On 2026-09-17, the user requested the previously unmeasured
-**650,000,000 elements per array, 100 iterations, balanced 144-thread**
-configuration. Four consecutive trials reused `build-650m-100/stream`,
-AOCC 4.0.0 and the original compiler flags, with the same six-per-physical-CCD
+Four additional trials measured **650,000,000 elements per array,
+100 iterations, balanced 144 threads** using AOCC 4.0.0 and the original
+compiler flags, with the same six-per-physical-CCD
 GOMP mask, default inherited memory policy, THP allocation/defrag `always`,
 and no cache drops.
 
@@ -229,19 +226,17 @@ Median best Triad was **778072.55 MB/s**, range **776778.3-780475.2 MB/s**
 Best-rate medians for Copy, Scale and Add were **703770.70**, **703481.25** and
 **779044.25 MB/s**, respectively.
 
-Thus 650M/100 at the balanced 144-thread placement did **not** reproduce the
-800+ GB/s source results seen with 280M/100. It was not interleaved with a
+This larger workload measured approximately 778 GB/s, compared with
+approximately 842 GB/s for 280M/100. It was not interleaved with a
 different candidate in this follow-up. The AMD prebuilt still has 10 iterations,
 so these results do not establish a source-versus-prebuilt winner even though
 array size and thread placement now match. The earlier 650M/10 build-method
-comparison used 176 threads; a matched 650M/10 comparison at 144 remains
-separate work.
+comparison used 176 threads.
 
 All four trials passed numerical and affinity validation. Pre-trial activity
 was low; the harness checked the same quiet-node gate and 120-second timeout.
-Both THP controls were restored to `madvise` and verified. Local evidence is
-`experiment-source650-144/` and `plan-source650-144.json` under the session
-evidence directory below. These four later trials are additional to the
+Both THP controls were restored to `madvise` and verified.
+These four trials are additional to the
 58-run tuning study counted above.
 
 ## Reproduce and retain scope
@@ -267,18 +262,10 @@ manifest identity, compiler version, and runtime library before launch.
 Numerical output and actual singleton thread bindings must match the selected
 profile. Missing evidence or unsupported output is a failure, not a fallback.
 
-Raw evidence remains under
-`~/.copilot/session-state/3a049321-e64b-451c-a352-3ae254739c74/files/stream/`:
-`experiment-controls/`, `experiment-placement/`, `experiment-finalists/`,
-`experiment-memory/`, and `run-tuned-144-integrated/`.
-Each phase retains its plan/seed, trial order, exact manifests, binary/runtime
-checksums, load samples, raw output, parsed results, and THP restoration records.
-`experiment.py` and `plan-{controls,placement,finalists,memory}.json` retain the
-bounded experimental procedure; the reusable runner is in the repository.
+For new comparisons, retain the trial order, build/run manifests, raw output,
+load samples and THP restoration records. Original raw run archives are not
+distributed with this repository.
 
-This is a tuned STREAM workload, not certified STREAM, an isolated flag study,
-a prebuilt-versus-source comparison at identical dimensions, or proof of
-optimal settings for WRF/other applications. The two THP controls were paired,
-and the compiler flag bundle was deliberately preserved rather than ablated.
-Further claims require further controlled measurements, not promotion of
-these observed rates to a universal expectation.
+These observations apply to the stated STREAM configurations, not other
+applications. The two THP controls were paired, and compiler flags were held
+fixed. Use matched, repeated tests before adopting a change in another workload.

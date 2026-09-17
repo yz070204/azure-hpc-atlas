@@ -3,7 +3,7 @@
 Use `scripts/build-wrf.sh` after the [runbook's checks](../SKILL.md).
 It has three steps: **prepare environment, configure, build**. It uses the
 selected stack, keeps logs, and stops at an error. There is no installer,
-JSON state, automatic cleanup, or resume framework.
+automatic cleanup or dependency replacement.
 
 ## 1. Select the stack
 
@@ -99,15 +99,14 @@ If the script is wrong, make the smallest justified fix and validate it before
 retrying. Do not change WRF/data versions or bypass checks merely to get a
 successful exit.
 
-## Translating a cluster-validation recipe
+## Adapting an existing recipe
 
-Do not source infrastructure `constants.sh`: it can run cloud queries and
-contains unrelated provisioning and upload settings. `WRF_SRC` here means
-the actual WRF checkout, not the validation-script directory. Fixed workspace
-paths and module names are discovery hints, not requirements.
+Inspect setup scripts before executing them; skip unrelated cloud provisioning
+and upload steps. `WRF_SRC` means the actual WRF checkout, not a helper-script
+directory. Existing workspace paths and module names are discovery hints, not
+requirements.
 
 Keep WRF **4.2.2** and the **v4.2 CONUS dataset**. Use the approved HBv4
 `znver4` target and record the difference from earlier `znver2` builds.
 Historical WRF 4.4.2 results stay in [results.md](results.md), not relabeled.
-Four nodes with 144 ranks each is a separate future MPI/IB workflow, not this
-single-node 176-rank baseline.
+Keep multi-node configurations separate from this single-node 176-rank baseline.

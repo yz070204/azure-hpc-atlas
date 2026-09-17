@@ -4,8 +4,7 @@
 
 **At the same 144 threads and 36 threads per NUMA node, balanced placement
 across physical CCDs materially outperformed uneven placement.** This is
-strong experimental support for the user's CCD-distribution explanation,
-not merely a consequence of lowering total thread count.
+evidence of a placement effect independent of lowering total thread count.
 
 On 2026-09-17, eight randomized comparison blocks at 280M elements per array
 gave:
@@ -34,7 +33,7 @@ workloads**. It does not directly measure CCD-link saturation, cache misses,
 per-thread barrier waiting, or explain the entire earlier 176-to-144 change.
 CPU selection and thread-to-data assignment necessarily change with affinity;
 the rotated-core control reduces, but cannot eliminate, all CPU-identity
-alternatives. No mathematical proof or cross-SKU validation is claimed.
+alternatives. Validate other SKUs separately.
 
 These source-build results were later replicated as a placement effect in
 [AMD's prebuilt STREAM](prebuilt-tuning.md), using that binary's fixed
@@ -99,9 +98,9 @@ eight-core groups while keeping the two six-core groups fully used.
 The last physical group spans guest-reported L3 groups on this VM; grouping
 by guest cache ID would not reproduce the intended experiment.
 
-The production runner intentionally exposes the validated balanced profile,
-not an unrestricted CPU-list tuning interface. To reproduce controls, use
-the retained experimental plans under a separately approved benchmark budget.
+The runner exposes the balanced profile, not an unrestricted CPU-list tuning
+interface. To repeat the controls in a separate approved experiment, use the
+masks and fixed conditions above, randomize trial order and record the seed.
 Keep array size, iterations, environment and THP fixed when testing placement.
 
 ## Primary trial results
@@ -160,12 +159,10 @@ Best Triad per block:
 | 3 | 753298.6 | 649067.0 |
 | 4 | 754771.5 | 651085.3 |
 
-The arrays clear the approximate four-times-aggregate-L3 size guidance.
-The balanced advantage remains in both best and average-time rates.
-This rules out an explanation confined solely to the 280M working set fitting
-better in cache; it does not prove that caches play no role. Rates are still
-algorithmic STREAM bandwidth, not hardware memory-controller counters or
-certified STREAM submissions.
+The balanced advantage remains in both best and average-time rates with
+the larger working set. It is therefore not confined to the smaller 280M
+workload. See [array sizing and interpretation](diagnosis.md#choosing-array-size);
+STREAM reports algorithmic bandwidth, not memory-controller traffic.
 
 ## Memory-allocation checks
 
@@ -219,22 +216,9 @@ exposed cores, cache size, memory channels and saturation points.
 For another SKU, verify its actual physical mapping, hold total threads,
 threads per NUMA, active CCD count, executable, memory policy and workload
 fixed, then randomize balanced/uneven placements and repeat. Include a rotated-
-core control and a large-array comparison. The user's similar findings on other
-SKUs are motivating context, not additional measured evidence in this report.
+core control and a large-array comparison.
 Do not copy this HBv4 CPU list or promote it to a cross-SKU invariant.
 
-## Local evidence
-
-Under
-`~/.copilot/session-state/3a049321-e64b-451c-a352-3ae254739c74/files/stream/`:
-
-- `experiment-ccd-balance/`, seed 20260921, eight blocks.
-- `experiment-ccd-rotation/`, seed 20260922, four blocks.
-- `experiment-ccd-large/`, seed 20260923, four blocks.
-- `experiment-ccd-memory/`, seed 20260924, diagnostic-only block.
-
-Each directory retains its plan, exact case masks, randomized execution order,
-raw logs, parsed best/average-time rates, manifests, binary/runtime identities,
-load samples and verified original/restored THP values. The existing
-`experiment.py` executes the retained `plan-ccd-*.json` plans. Use new output
-directories and explicit approval; do not overwrite the measured evidence.
+For new measurements, retain masks, trial order, raw logs, build/runtime
+identities, load samples and THP restoration records in a new output directory.
+Original raw run archives are not distributed with this repository.

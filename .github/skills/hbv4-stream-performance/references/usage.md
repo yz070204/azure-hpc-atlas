@@ -5,6 +5,27 @@ explicit tuning request. The [main skill](../SKILL.md) defines routing:
 176-thread original source by default, 176-thread original AMD prebuilt when
 requested. The 144-thread profiles are optional, not automatic.
 
+## Script layout
+
+The entry scripts keep the actual compiler and launch commands visible:
+settings, checks, environment, execution, then results.
+
+| File | Responsibility |
+|---|---|
+| [`scripts/build-stream.sh`](../scripts/build-stream.sh) | Original compiler flags and build steps |
+| [`scripts/run-stream.sh`](../scripts/run-stream.sh) | Profile settings, explicit launch commands and trial loop |
+| [`scripts/lib/checks.sh`](../scripts/lib/checks.sh) | Approval, input, binary/runtime identity and host-readiness checks |
+| [`scripts/lib/records.sh`](../scripts/lib/records.sh) | Build/run manifests, exact command logging and library hashes |
+| [`scripts/lib/thp.sh`](../scripts/lib/thp.sh) | Save, enable and restore approved THP settings |
+| [`scripts/summarize.py`](../scripts/summarize.py) | Numerical/affinity validation and result statistics |
+| [Shared topology checker](../../azure-hbv4-hx176-topology/scripts/check-topology.sh) | Read-only Bash/awk validation of the documented full-size guest signature |
+
+The shell helpers are sourced by the entry scripts, not executed separately.
+They use the settings declared at the top of those scripts. The topology
+checker is standalone and benchmark-independent. Python is used only for
+STREAM result parsing, not embedded in build/run scripts or topology checks.
+Keep the sibling skill directories together when copying this workflow.
+
 ## Prepare paths and prerequisites
 
 From the repository root:
@@ -26,7 +47,7 @@ Check `lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE`, `numactl --show`,
 The allocation must expose CPUs 0-175 and memory nodes 0-3. Low load is not
 proof of exclusive access. The runner validates the full topology for original
 and balanced profiles, but cannot establish exclusive allocation or all cgroup
-limits. Bash, Python 3 standard library, curl, tar, coreutils, lscpu, vmstat,
+limits. Bash, awk, Python 3 standard library, curl, tar, coreutils, lscpu, vmstat,
 numactl and authorized `sudo -n` are required. Do not install missing tools
 without approval.
 
@@ -62,7 +83,7 @@ bash "$SKILL_DIR/scripts/build-stream.sh" \
   "$AOCC_ROOT" "$WORK_ROOT/stream.c" "$WORK_ROOT/build-original"
 ```
 
-The Bash helper preserves the supplied flags, double precision, source copy,
+The Bash helper records the documented flags, double precision, source copy,
 compiler identity, libraries and executable checksum in the build directory:
 
 ```text
@@ -101,7 +122,7 @@ explicit approval; the helper saves/restores prior values. For source original,
 also obtain `STREAM_CACHE_DROP_APPROVED=yes` before the `sync`/`drop_caches=3`
 operation. Restoring THP does not undo cache drops. If approval is absent,
 stop; do not silently run a different profile or pretend the original ran.
-No cloud/KVP/SSH operations from the supplied infrastructure scripts are needed.
+These helpers do not require cloud provisioning, SSH configuration or uploads.
 
 The source profiles require the pinned source, original dimensions, AOCC
 4.0.0 version/runtime and matching binary manifest. Prebuilt profiles check
@@ -141,6 +162,7 @@ thread count; the isolated evidence is in the detailed studies.
 
 Read `summary.json`, `run-manifest.txt`, `libraries.txt`, build manifests,
 `stream-N.log`, load samples, and `thp-active.txt`/`thp-restored.txt`.
+The run manifest records the exact command for each trial.
 The runner verifies every kernel, numerical validation even when exit status
 is zero, actual expected singleton CPU binding, and required profile dimensions.
 Timeout, non-finite/missing data or inconsistent output stops the batch.

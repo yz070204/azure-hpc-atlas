@@ -109,7 +109,7 @@ def summarize(records):
     return {"workload": records[0]["workload"], "repetitions": len(records),
             "metrics": groups["best_rate_MB_s"],
             "average_rate_metrics": groups["average_rate_MB_s"], "runs": records,
-            "scope": "Tuned STREAM variants; not a certification of STREAM run-rule compliance"}
+            "scope": "Workload-specific STREAM bandwidth; compare matching array sizes and run settings"}
 
 
 def main():

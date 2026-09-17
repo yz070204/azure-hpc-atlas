@@ -5,7 +5,7 @@
 The Azure HPC image may include
 `/opt/azurehpc/diagnostics/gather_azhpc_vm_diagnostics.sh`, from
 [Azure/azhpc-diagnostics](https://github.com/Azure/azhpc-diagnostics).
-Treat it as an optional evidence collector, not a health certification.
+Use it as an optional evidence collector alongside targeted diagnostic checks.
 
 | Situation | Best use |
 |---|---|
@@ -76,7 +76,7 @@ printf 'Collector exit status: %s\n' "$rc" | tee "$out/exit-status.txt"
 ```
 
 Record the exact invocation, UTC time, detected SKU/image/kernel, and tool
-identity alongside the output. Use a durable private session directory instead
+identity alongside the output. Use a durable private work directory instead
 of `/tmp` if evidence must survive temporary-file cleanup. Do not grant broad
 permissions to make root-owned evidence easier to read.
 
@@ -154,27 +154,19 @@ or use a different SKU's affinity list to bypass these restrictions. For HBv4
 performance, follow the triage memory branch and a separately validated
 benchmark with recorded build, placement, input, repetitions, and baseline.
 
-## Observed validation, 2026-09-15
+## Reference collector version
 
-One approved run of the installed copy on `Standard_HB176rs_v4`, Ubuntu HPC
-24.04 image `24.04.2026082101`, kernel `6.8.0-1064-azure`:
+This procedure was checked against the following installed copy on
+`Standard_HB176rs_v4`, Ubuntu HPC 24.04 image `24.04.2026082101`,
+kernel `6.8.0-1064-azure`:
 
-- Reported version: `20220316-Unknown`; this is the script's version string,
-  not proof of a particular upstream commit.
-- SHA-256: `84ff4d57e89b6ccda3e21ff92f822dee3827aa9237732a6782aac5d03444d47d`.
-- Flags: `--offline --no-update --mem-level=0 --dir=<private-output>`.
-- Exit zero; readable archive with 152 files, about 3.04 MB compressed.
-  `VM/journald.log` alone was about 369 MB uncompressed. Sizes and duration
-  are node-specific, not expected limits.
-- RDMA device `mlx5_ib0`, CA type `MT4126`, firmware `28.47.1026`,
-  InfiniBand Active/LinkUp, reported `400 Gb/sec (4X NDR)`.
-- Supplemental extended topology matched all 176 rows of the required
-  full-size signature: four NUMA nodes, 44 CPUs each, policy-1 guest L3 groups.
-- No STREAM, GPU diagnostic, MPI traffic test, or application benchmark ran.
-  No automatic setting changes or uploads were performed.
+| Field | Value |
+|---|---|
+| Reported version | `20220316-Unknown` |
+| SHA-256 | `84ff4d57e89b6ccda3e21ff92f822dee3827aa9237732a6782aac5d03444d47d` |
+| Collection flags | `--offline --no-update --mem-level=0 --dir=<private-output>` |
 
-Classification: `expected` for the observed CPU/NUMA and local IB readiness
-only. Performance and cross-node connectivity remain untested. This single
-run validates the collector's usefulness as supporting evidence on this
-image, not every SKU, image, or future script revision. Keep raw archives
-and identifiers out of the skill and repository.
+The version string does not identify a particular upstream commit. Recheck
+option behavior when the installed copy differs. CPU-only collection produced
+a readable archive without running STREAM, GPU diagnostics or MPI traffic.
+Keep raw archives and machine identifiers outside the repository.

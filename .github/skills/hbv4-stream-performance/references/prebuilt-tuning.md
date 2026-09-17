@@ -10,7 +10,7 @@ An ordinary AMD-prebuilt request defaults to its original 176-thread launch
 with THP always; this 144-thread profile is explicit opt-in. See
 [current workflow defaults](../SKILL.md).
 
-The executable was the user-supplied AMD Zen STREAM `2024_10_08` package,
+The executable was the AMD Zen STREAM `2024_10_08` package,
 SHA-256 `b6d034f991c560f3f1edfb4da23dd73d11e864878eb60956d2b46e412984f6c0`.
 Every run retained its compiled **650,000,000 doubles per array, 10 iterations**.
 No rebuild, source changes, AOCC compiler setup or external OpenMP runtime
@@ -118,18 +118,16 @@ and never drops caches. The source-only `tuned-144` profile remains distinct.
 
 ### Original prebuilt command baseline
 
-A later user-requested baseline on 2026-09-17 used the supplied command's
-settings: `OMP_NUM_THREADS=176 OMP_PROC_BIND=true OMP_PLACES=cores`.
+The original-command baseline used
+`OMP_NUM_THREADS=176 OMP_PROC_BIND=true OMP_PLACES=cores`.
 No GOMP affinity, schedule/dynamic/thread-limit/stack overrides or `numactl`
 launch wrapper were added. THP allocation/defrag stayed at the existing
 `madvise` settings; there were no cache drops. This differs from the controlled
 176-thread GOMP/THP-always row above and the initial normalized/localalloc
 comparison. Keep the three baselines labeled separately.
 
-The user's `configs.sh` was not supplied; `NUM_THREADS_STREAM=176` is the
-known full-size baseline assumption, not a reconstruction of unknown file
-contents. Added diagnostics were only environment/affinity display, saved logs
-and the 120-second timeout with five-second termination grace.
+Diagnostics added environment/affinity display, saved logs and a 120-second
+timeout with five-second termination grace.
 
 Four original-command trials, raw best Triad in MB/s:
 **743569.5, 748203.5, 749858.4, 740707.6**.
@@ -147,14 +145,13 @@ The difference from the tuned prebuilt profile changes several factors
 (including threads, affinity, OpenMP settings and THP) and is not a pure
 thread-count or THP-only comparison.
 
-Local evidence is `run-prebuilt-original/` and `run-prebuilt-original.sh`
-under the directory below. These four later trials are additional to the
+These four baseline trials are additional to the
 36 placement/tuning trials described next.
 
 ### Original command with THP always
 
-The user then requested the same original prebuilt command with **both THP
-allocation and defrag set to `always`**. Four further trials retained 176
+Four further trials used the original prebuilt command with **both THP
+allocation and defrag set to `always`**. They retained 176
 threads, `OMP_PROC_BIND=true`, `OMP_PLACES=cores`, 650M/10, no extra OpenMP
 tuning, no NUMA override and no cache drops. Relative to the original-command
 baseline above, only the two THP controls were intentionally changed.
@@ -179,27 +176,24 @@ THP effect estimate independent of time/run variability. The tuned 144-thread
 profile also changes affinity and other OpenMP settings, so comparing with it
 is not a thread-count-only test.
 
-Evidence: `run-prebuilt-original-always/`; reproduce with
-`bash run-prebuilt-original.sh always` in the retained session workspace after
-approval, using a new output directory. This wrapper restores THP on exit.
-These four trials are additional to both the original-command four and the
-36 placement/tuning trials below.
+Use the `prebuilt-original` command in [the runbook](../SKILL.md) for this
+configuration. The helper restores THP on exit. These four trials are additional
+to the original-command four and the 36 placement/tuning trials below.
 
 ### Placement/tuning trial scope
 
 All **36 trials** completed with successful numerical validation and correct
 thread counts/binding: 20 initial, 12 finalist, four runner confirmations.
-The experimental seeds were 20260925 and 20260926. The existing harness's
-default 100-iteration check was extended with an explicit per-case `ntimes=10`;
-the prebuilt was not modified to satisfy a source-build assumption.
+The experimental seeds were 20260925 and 20260926. The binary's fixed
+650M/10 dimensions were verified in every run.
 
 OpenMP settings were `OMP_NUM_THREADS` as selected,
 `GOMP_CPU_AFFINITY` as the physical mask, `OMP_SCHEDULE=static`,
 `OMP_DYNAMIC=false`, `OMP_THREAD_LIMIT=512`, `OMP_STACKSIZE=256M`,
 `OMP_DISPLAY_ENV=VERBOSE` and `OMP_DISPLAY_AFFINITY=true`.
 Inherited OMP/GOMP/KMP affinity was cleared, as were unrelated library/preload
-overrides. The experiment did not source AOCC. Compared with the user's
-initial prebuilt command, explicit physical GOMP binding replaced
+overrides. The experiment did not source AOCC. Compared with the original
+prebuilt command, explicit physical GOMP binding replaced
 `OMP_PROC_BIND=true OMP_PLACES=cores`; all current cases used the same method.
 
 Pre-trial `vmstat` samples required at least 98% CPU idle; runs were bounded
@@ -209,15 +203,12 @@ verified active and restored to their original `madvise` values after each
 phase. Actual huge-page coverage was not sampled in these prebuilt trials;
 do not reuse source-process memory snapshots as proof for this binary.
 
-The prebuilt implementation/compiler details were not reconstructed. The
-data establish a placement effect, not a specific CCD-link/cache/barrier
-mechanism. The fixed 650M arrays are below the usual four-times-aggregate-L3
-guidance on this VM; results remain tuned STREAM measurements rather than
-certified submissions or hardware DRAM-counter readings.
+The data establish a placement effect for this binary and workload.
+Hardware mechanisms were not directly measured. See
+[array sizing and interpretation](diagnosis.md#choosing-array-size) when
+comparing with other workloads.
 
-Raw evidence under
-`~/.copilot/session-state/3a049321-e64b-451c-a352-3ae254739c74/files/stream/`:
-`experiment-prebuilt-placement/`, `experiment-prebuilt-finalists/`,
-`run-prebuilt-144-integrated/`, and their `plan-prebuilt-*.json` plans.
-Keep this prebuilt evidence separate from source-build experiments and do
-not promote these rates or the 144-thread count to another SKU without testing.
+For new measurements, retain the generated manifests and raw logs. Original
+raw run archives are not distributed with this repository. Keep prebuilt
+results separate from differently sized source-build tests, and validate
+placement again before applying it to another SKU.

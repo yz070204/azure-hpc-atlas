@@ -1,6 +1,6 @@
 ---
 name: hbv4-wrf-conus-performance
-description: Build and run the single-node WRF 4.2.2 and v4.2 CONUS 2.5 km comparison on Azure Standard_HB176rs_v4. Use for WRF builds, CONUS benchmarks, MPI pinning, process grids, compiler flags, and report-compatible timing; preserve original dependencies where possible and disclose substitutions.
+description: Build and run the single-node WRF 4.2.2 and v4.2 CONUS 2.5 km comparison on Azure Standard_HB176rs_v4. Use for WRF builds, CONUS benchmarks, MPI pinning, process grids, compiler flags, and reproducible timing; preserve baseline dependencies where possible and disclose substitutions.
 user-invocable: false
 ---
 
@@ -45,19 +45,17 @@ Compiler and MPI versions must also be matched to the chosen prior run where
 known; a module name alone does not pin a version. Record unknown baseline
 versions as comparison gaps. The default launch requires compatible Open
 MPI/HPC-X. Historical timings in [results.md](references/results.md) retain
-their original WRF 4.4.2 or external-report labels; matching WRF/data alone
+their original WRF 4.4.2 labels; matching WRF/data alone
 does not make a different toolchain an exact software-stack reproduction.
-When given an older cluster-validation script or constants file, use the
-[translation table](references/build.md#translating-a-cluster-validation-recipe)
-before reusing its settings. Build jobs, MPI ranks, node count, source version,
-and dataset version are separate choices; do not source the infrastructure
-constants or silently replace the comparison recipe.
+When adapting another build or launch script, follow the
+[recipe adaptation guidance](references/build.md#adapting-an-existing-recipe).
+Build jobs, MPI ranks, node count, source version and dataset version are
+separate choices. Inspect setup scripts before executing them.
 
-Start with one node. A later, separate four-node skill can exercise
-cross-node MPI/InfiniBand with matched software, input, placement and timing.
-Do not add that launch here or reuse its 144-ranks-per-node setting as the
-single-node default. A successful single-node run does not validate IB
-communication; a future multi-node run must verify the selected RDMA transport.
+This runbook covers one node. Multi-node runs need a separate procedure with
+matched software, input, placement and timing, including verification of the
+selected RDMA transport. A successful single-node run does not validate
+cross-node InfiniBand communication.
 
 ## Before starting
 

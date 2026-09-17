@@ -25,7 +25,8 @@ from the measured profiles.
 ## 2. Check and prepare
 
 - Detect SKU; compare full CPU/NUMA signature with the
-  [topology skill](../azure-hbv4-hx176-topology/SKILL.md). Require the intended
+  [topology skill](../azure-hbv4-hx176-topology/SKILL.md) using its shared
+  Bash checker (also called by the runner). Require the intended
   allocation, default NUMA policy, low competing activity and adequate memory.
   Check cgroup limits: the runner's 24 GiB available-memory check is not enough.
 - Discover software under `/opt` first, then modules/PATH and scoped work
@@ -35,8 +36,8 @@ from the measured profiles.
   The original source recipe also drops host caches before each trial:
   **separate approval is required; a cache drop cannot be undone.**
 - Use [preparation and build instructions](references/usage.md) only when
-  artifacts are missing. Reuse verified binaries. Never source cluster-validation
-  constants/utilities: they perform unrelated cloud/identity operations.
+  artifacts are missing. Reuse verified binaries. Inspect unfamiliar setup
+  scripts before execution; do not run unrelated provisioning or upload steps.
 
 Stop on wrong SKU/topology, busy allocation, missing approval, incompatible
 build or failed validation. Do not kill jobs, install tools or change persistent
@@ -85,7 +86,7 @@ Check in this order; explain the mismatch before changing it:
 3. **Run:** actual threads/binding, conflicting OMP/GOMP/KMP variables,
    NUMA policy, THP, cache-drop behavior, memory pressure and competing work.
 4. Compare only matching conditions using
-   [experiment baselines and caveats](references/diagnosis.md). If unresolved,
+   [baselines and interpretation](references/diagnosis.md). If unresolved,
    use [first-line triage](../hpc-atlas-firstline-triage/SKILL.md); low bandwidth
    alone is not evidence of faulty hardware.
 
@@ -101,7 +102,7 @@ kept your 176-thread default."** Say *observed improvement*, not a guarantee.
 Do not run that comparison unless requested. Use physical topology, not guest
 L3 IDs or CPUs `0-143`; preserve the [CCD-balance evidence](references/ccd-balance.md).
 
-Label these **tuned STREAM workloads**, not certified DRAM measurements.
-280M and prebuilt 650M are below STREAM's four-times-total-L3 size requirement
-on this node; 1.3B meets that size criterion but is a **separate** workload,
-not a silent replacement for the historical default.
+Report workload-specific bandwidth. For larger-than-cache characterization,
+follow [array-sizing guidance](references/diagnosis.md#choosing-array-size).
+Keep the original 280M and prebuilt 650M baselines unchanged unless a different
+workload is requested.

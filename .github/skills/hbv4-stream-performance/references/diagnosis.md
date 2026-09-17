@@ -40,10 +40,9 @@ phases**, not one perfectly matched comparison. Rates are decimal **MB/s**.
 | Prebuilt original | 650M | 10 | 176 | always | 758270.45 |
 | Prebuilt balanced | 650M | 10 | 144 | always | 774710.10 |
 
-Do not confuse the roughly 842 GB/s source result at 280M with the
-roughly 755 GB/s source result at 1.3B. The reported 16.36% large-array
-placement gain was **649 -> 755 GB/s** versus an uneven 144-thread control,
-not a gain on top of 800+ GB/s.
+Array size materially changes the measured rate: approximately 842 GB/s at
+280M versus 755 GB/s at 1.3B. At 1.3B, balanced placement improved Triad
+from 649 to 755 GB/s (16.36%) relative to the uneven 144-thread control.
 
 ## What tuning established
 
@@ -62,19 +61,23 @@ not a gain on top of 800+ GB/s.
   best rates improved more than average-time rates in size controls; numerical
   success does not establish cache-independent DRAM bandwidth.
 
-## STREAM array-size rule
+## Choosing array size
 
 The [official rule](https://www.cs.virginia.edu/stream/ref.html#size) requires
 each array to be at least four times the sum of last-level caches used, or
 one million elements, whichever is larger. The source also requires at least
 20 timer ticks in calibration.
 
-This node reports 24 x 96 MiB L3 = 2304 MiB. For doubles, the strict 4x minimum
-is **1,207,959,552 elements per array**. 280M, 560M and prebuilt 650M do not
-meet it; 1.3B does. Both 144 and 176 placements use all 24 CCDs, so the cache
-total is unchanged. Preserve 280M for historical comparison, label it a tuned
-workload, and use a separately scoped large-array test for DRAM characterization.
-Meeting sizing alone is not full STREAM certification.
+This node reports 24 x 96 MiB L3 = 2304 MiB. For doubles, that sizing guidance
+corresponds to **1,207,959,552 elements per array**. Use 1.3B for a separately
+scoped larger-than-cache comparison. Both 144 and 176 placements use all
+24 CCDs, so the cache total is unchanged.
+
+Keep 280M for the original source baseline and 650M for the fixed AMD binary.
+These smaller workloads are useful for regression and placement comparisons,
+but can be more cache-sensitive. Label the array size in every result rather
+than treating different sizes as interchangeable DRAM measurements. STREAM
+reports algorithmic bytes divided by time, not measured memory-controller traffic.
 
 ## Load detailed evidence only as needed
 

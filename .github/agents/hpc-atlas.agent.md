@@ -113,6 +113,12 @@ it. Do not transfer full-size topology mappings to constrained-core sizes.
 10. Preserve correctness. Never trade scientific validity or numerical
     semantics for speed without disclosing and validating the change.
 
+Keep repository documentation customer-facing and portable: use placeholder
+paths, public source links and reproducible commands. Exclude local assistant
+session identifiers, machine-specific workspace paths, private report
+comparisons and raw diagnostic archives. Retain technical limitations that
+affect interpretation, stated concisely alongside the relevant guidance.
+
 ## Investigation workflow
 
 ### 1. Frame the symptom

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -57,6 +58,8 @@ class SummaryTests(unittest.TestCase):
         self.assertAlmostEqual(result["metrics"]["Triad"]["range_percent_of_median"],
                                100 * 10000 / 755000)
         self.assertEqual(result["repetitions"], 2)
+        self.assertEqual(result["scope"],
+                         "Workload-specific STREAM bandwidth; compare matching array sizes and run settings")
         json.dumps(result, allow_nan=False)
 
     def test_bad_outputs(self):
@@ -188,22 +191,57 @@ else:
         manifest = (build / "build-manifest.txt").read_text()
         self.assertIn("array_size=280000000", manifest)
         self.assertIn("ntimes=100", manifest)
+        command = next(line.removeprefix("command=") for line in manifest.splitlines()
+                       if line.startswith("command="))
+        self.assertEqual(shlex.split(command)[2:-2], [
+            "-fopenmp", "-mcmodel=large", "-DSTREAM_TYPE=double",
+            "-DSTREAM_ARRAY_SIZE=280000000", "-DNTIMES=100", "-ffp-contract=fast",
+            "-fnt-store", "-O3", "-Ofast", "-ffast-math", "-ffinite-loops",
+            "-march=native", "-zopt", "-fremap-arrays", "-mllvm",
+            "-enable-strided-vectorization", "-fvector-transform",
+        ])
 
     def run_candidate(self, text, exit_code, profile="normalized-176",
                       thp_approved=False, fail_thp=False, prebuilt_checksum_valid=True,
                       cache_drop_approved=False, fail_cache_drop=False, repetitions=1,
-                      inject_prebuilt_runtime=False):
+                      inject_prebuilt_runtime=False, allowed_cpus="0-175",
+                      available_kib=32 * 1024 * 1024, numa_policy="default",
+                      bad_topology=False, avx512=True, fail_restore=False):
         explicit_profile = profile
         profile = profile or "source-original"
         self.tool(self.tools, "curl", "print('Standard_HB176rs_v4')\n")
         self.tool(self.tools, "python3", f"""
 import os
 import sys
-if sys.argv[1:] != ['-']:
-    os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])
+assert sys.argv[1:] != ['-'], 'Preflight must not embed Python'
+os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])
 """)
-        for name in ("lscpu", "numactl", "vmstat", "sync"):
+        topology = "CPU NODE SOCKET CORE L1d:L1i:L2:L3 ONLINE\n"
+        for cpu in range(176):
+            node = cpu // 44
+            private = cpu + (0, 4, 40, 44)[node]
+            l3 = (0, 6, 16, 22)[node] + min((cpu % 44) // 8, 5)
+            topology += f"{cpu} {node} {cpu // 88} {cpu} {private}:{private}:{private}:{l3} yes\n"
+        if bad_topology:
+            topology = topology.replace("0:0:0:0", "0:0:0:1")
+        self.tool(self.tools, "lscpu", f"print({topology!r}, end='')\n")
+        self.tool(self.tools, "numactl", f"print({'policy: ' + numa_policy!r})\n")
+        for name in ("vmstat", "sync"):
             self.tool(self.tools, name, "print('mock inventory')\n")
+        (self.root / "proc-status").write_text(
+            f"Cpus_allowed_list:\t{allowed_cpus}\nMems_allowed_list:\t0-3\n")
+        (self.root / "proc-memory").write_text(f"MemAvailable: {available_kib} kB\n")
+        (self.root / "proc-cpuinfo").write_text("flags: avx512f\n" if avx512 else "flags: avx2\n")
+        for name in ("awk", "grep"):
+            self.tool(self.tools, name, f"""
+import os
+import sys
+paths = {{'/proc/self/status': {str(self.root / 'proc-status')!r},
+          '/proc/meminfo': {str(self.root / 'proc-memory')!r},
+          '/proc/cpuinfo': {str(self.root / 'proc-cpuinfo')!r}}}
+args = [paths.get(arg, arg) for arg in sys.argv[1:]]
+os.execv('/usr/bin/{name}', ['/usr/bin/{name}', *args])
+""")
         library = self.root / "lib test.so"
         library.write_text("test library")
         self.tool(self.tools, "env", f"""
@@ -275,6 +313,9 @@ assert str(target.parent) == '/sys/kernel/mm/transparent_hugepage', target
 if {fail_thp!r} and target.name == 'defrag' and value == 'always':
     print('simulated setting failure', file=sys.stderr)
     sys.exit(1)
+if {fail_restore!r} and value == 'madvise':
+    print('simulated restoration failure', file=sys.stderr)
+    sys.exit(1)
 Path({str(self.root)!r}, target.name).write_text('[' + value + ']\\n')
 """)
         run = self.root / "run"
@@ -329,6 +370,11 @@ Path({str(self.root)!r}, target.name).write_text('[' + value + ']\\n')
         self.assertEqual((self.root / "cache-drops.txt").read_text(), "3\n" * 3)
         self.assertEqual(json.loads((run / "summary.json").read_text())["repetitions"], 3)
         self.assertIn("profile=source-original", (run / "run-manifest.txt").read_text())
+        commands = [line.removeprefix("command=")
+                    for line in (run / "run-manifest.txt").read_text().splitlines()
+                    if line.startswith("command=")]
+        self.assertEqual(len(commands), 3)
+        self.assertEqual(shlex.split(commands[0])[1:], args[1:])
         self.assertEqual((run / "thp-active.txt").read_text(), "[always]\n[always]\n")
         self.assertEqual((run / "thp-restored.txt").read_text(), "[madvise]\n[madvise]\n")
 
@@ -374,6 +420,7 @@ Path({str(self.root)!r}, target.name).write_text('[' + value + ']\\n')
         self.assertFalse((self.root / "cache-drops.txt").exists())
         self.assertEqual((run / "thp-active.txt").read_text(), "[always]\n[always]\n")
         self.assertEqual((run / "thp-restored.txt").read_text(), "[madvise]\n[madvise]\n")
+        self.assertIn("command=env -i", (run / "run-manifest.txt").read_text())
 
     def test_original_prebuilt_requires_thp_approval(self):
         proc, run = self.run_candidate(output(), 0, "prebuilt-original")
@@ -461,12 +508,84 @@ Path({str(self.root)!r}, target.name).write_text('[' + value + ']\\n')
         self.assertIn("Unknown STREAM_PROFILE", proc.stderr)
         self.assertFalse(run.exists())
 
+    def test_shared_topology_checker_blocks_bad_signature(self):
+        proc, run = self.run_candidate(output(), 0, "prebuilt-original", True,
+                                       bad_topology=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("topology differs", proc.stderr)
+        self.assertFalse(run.exists())
+        self.assertEqual((self.root / "enabled").read_text(), "always [madvise] never\n")
+
+    def test_restricted_allocation_is_rejected(self):
+        proc, run = self.run_candidate(output(), 0, allowed_cpus="0-143")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("all CPUs 0-175", proc.stderr)
+        self.assertFalse(run.exists())
+
+    def test_insufficient_memory_is_rejected(self):
+        proc, run = self.run_candidate(output(), 0, available_kib=24 * 1024 * 1024 - 1)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("24 GiB", proc.stderr)
+        self.assertFalse(run.exists())
+
+    def test_exact_memory_threshold_is_accepted(self):
+        proc, run = self.run_candidate(output(), 0, available_kib=24 * 1024 * 1024)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertTrue((run / "summary.json").is_file())
+
+    def test_missing_avx512_is_rejected(self):
+        proc, run = self.run_candidate(output(), 0, avx512=False)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("AVX-512", proc.stderr)
+        self.assertFalse(run.exists())
+
+    def test_original_profile_rejects_inherited_numa_override(self):
+        proc, run = self.run_candidate(output(), 0, "prebuilt-original", True,
+                                       numa_policy="interleave")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("default NUMA policy", proc.stderr)
+        self.assertFalse(run.exists())
+
+    def test_normalized_profile_retains_explicit_numa_override(self):
+        proc, run = self.run_candidate(output(), 0, numa_policy="interleave", bad_topology=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        args = json.loads((self.root / "launch-args.json").read_text())
+        self.assertIn("numactl", args)
+        self.assertIn("--localalloc", args)
+        self.assertFalse((run / "thp-restored.txt").exists())
+
+    def test_restoration_failure_is_reported(self):
+        proc, run = self.run_candidate(output(), 0, "prebuilt-original", True,
+                                       fail_restore=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("THP restoration failed", proc.stderr)
+        self.assertEqual((run / "thp-original.txt").read_text(), "enabled=madvise\ndefrag=madvise\n")
+
     def test_runner_success(self):
         proc, run = self.run_candidate(output(), 0)
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
         self.assertEqual(json.loads((run / "summary.json").read_text())["repetitions"], 1)
         self.assertIn(hashlib.sha256(b"test library").hexdigest(),
                       (run / "libraries.sha256").read_text())
+
+    def test_shell_library_hashes_handle_loader_and_spaces(self):
+        library = self.root / "library with spaces.so"
+        library.write_text("library")
+        loader = self.root / "ld-linux.so"
+        loader.write_text("loader")
+        (self.root / "libraries.txt").write_text(
+            "linux-vdso.so.1 (0x123)\n"
+            f"\tlibtest.so => {library} (0x456)\n"
+            f"\t{loader} (0xabc)\n")
+        proc = subprocess.run(
+            ["bash", "-c", 'set -euo pipefail; source "$1"; output=$2; record_library_hashes',
+             "bash", str(SCRIPTS / "lib/records.sh"), str(self.root)],
+            capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual((self.root / "libraries.sha256").read_text().splitlines(), [
+            f"{hashlib.sha256(b'library').hexdigest()}  {library}",
+            f"{hashlib.sha256(b'loader').hexdigest()}  {loader}",
+        ])
 
     def test_zero_exit_with_failed_validation(self):
         proc, run = self.run_candidate(output() + "Failed Validation on array a[]", 0)

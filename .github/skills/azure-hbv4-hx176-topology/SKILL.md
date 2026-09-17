@@ -25,9 +25,8 @@ For Azure VM, this should apply to size below only:
 - A range such as `0-7 -> 16-23` maps in order: vCPU 0 maps to Pcore 16,
   vCPU 1 maps to Pcore 17, and so on.
 
-The source workbook calls the measured host processor ID `Pcore`. Preserve that
-name when discussing the workbook. Do not claim that a guest can directly pin a
-thread to a Pcore; guest affinity controls vCPU IDs.
+Here, `Pcore` denotes the measured host processor ID. A guest cannot directly
+pin a thread to a Pcore; guest affinity controls vCPU IDs.
 
 ## Topology invariants
 
@@ -43,7 +42,7 @@ thread to a Pcore; guest affinity controls vCPU IDs.
 
 - Therefore, for a valid vCPU `v`, `vNUMA = floor(v / 44)`.
 - Every vCPU stays local to the physical NUMA node matching its vNUMA node.
-- The host topology represented by the workbook has 192 Pcores (`0-191`),
+- The reference host topology has 192 Pcores (`0-191`),
   four physical NUMA nodes, and 24 physical CCDs (`0-23`).
 - A full-size VM receives 176 of those 192 Pcores. Sixteen Pcores are not in
   the VM mapping.
@@ -106,6 +105,19 @@ For each row:
 Use `LC_ALL=C lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE` when collecting the
 signature so parsing is locale-independent and all required fields are
 present.
+
+For a read-only check from the repository root:
+
+```bash
+bash .github/skills/azure-hbv4-hx176-topology/scripts/check-topology.sh
+```
+
+The reusable Bash/awk checker validates every row, including duplicates,
+missing/offline CPUs and all cache IDs. It exits nonzero on a mismatch or
+collection failure. It does not change affinity, generate a physical CCD map,
+query Azure metadata or run a benchmark. The caller must first establish that
+the VM is a covered full-size SKU. STREAM calls this checker; other benchmark
+workflows can reuse it without embedding their own topology parser.
 
 For one CPU `c`, the expected L3 ID can be calculated as:
 
@@ -216,8 +228,8 @@ When recommending guest CPU affinity:
 ## Source and interpretation guardrails
 
 Treat this as a mapping for the measured Azure HBv4/HX full-size topology.
-The policy patterns are engineering-supplied observations, not a substitute
-for checking the live VM.
+The policy patterns describe this reference topology; check the live VM
+before applying the mapping.
 
 If a live VM's Hyper-V Ideal Cpu data or measured performance disagrees,
 report the discrepancy rather than silently substituting this reference.
