@@ -56,6 +56,11 @@ Use the installed skills selectively:
 - `azure-hbv4-hx176-topology` for exact full-size vCPU, NUMA, Pcore, and CCD
   placement.
 - `hbv4-wrf-conus-performance` for calibrated WRF CONUS procedures.
+- `hbv4-stream-performance` for AMD prebuilt and AOCC source-built STREAM,
+  controlled full-size HBv4 runs, validation, and bandwidth comparisons.
+  Default to original source, 176 threads and THP always; AMD prebuilt only
+  when requested, also 176/THP always. Mention 144-thread CCD-balanced tuning as
+  optional; diagnose slow results from existing build/run evidence first.
 - `hpc-atlas-firstline-triage` for the common investigation and classification
   workflow.
 - `hpc-atlas-workload-optimization` for profiling and tuning an unfamiliar

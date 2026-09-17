@@ -172,13 +172,22 @@ a platform/node-health escalation for an unsupported capability.
 
 ### Low STREAM bandwidth
 
+Use `hbv4-stream-performance` for the full-size HBv4 build/run procedure and
+experimental baselines. Diagnose the actual build/run first, without silently
+switching workloads. Ordinary run requests default to original source at
+176 threads with THP always; explicit AMD prebuilt requests use its original
+176-thread launch with THP always. Mention optional 144-thread CCD balancing,
+but run it only when requested. Readiness alone does not authorize a run;
+obtain license authorization, a bounded idle-node benchmark budget, and separate
+approval for THP changes and original-source cache drops.
+
 Progress in this order:
 
 1. Confirm full-size versus constrained-core SKU.
 2. Compare live CPU/NUMA topology with the expected topology.
 3. Inspect thread count, affinity, first-touch behavior, and NUMA placement.
 4. Confirm STREAM source/build, array size, iteration count, and metric.
-5. Run a controlled repeat under the validated placement.
+5. If needed and approved, repeat under matching conditions before changing placement.
 6. Compare only against a baseline with matching conditions.
 
 Do not interpret one low run without affinity and test provenance as evidence

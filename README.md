@@ -47,3 +47,48 @@ stack, checks compatibility, and preserves stage logs; the run script
 handles launch and post-run reporting. Neither requires an AI subscription.
 Historical results and alternative configurations are kept separate from the
 default path.
+
+## Run STREAM without an AI assistant
+
+Follow the [HBv4 STREAM runbook](.github/skills/hbv4-stream-performance/SKILL.md)
+for **Check -> Build -> Run -> Review**. The HPC Atlas agent routes STREAM
+requests to this concise skill; preparation, manual commands and experimental
+evidence are loaded separately when needed.
+
+| Request | Default |
+|---|---|
+| Run STREAM | Original AOCC 4.0.0 source, 280M doubles per array / 100 iterations, **176 threads**, THP allocation/defrag **always** (`source-original`) |
+| Run AMD prebuilt STREAM | AMD 2024_10_08, fixed 650M / 10, **176 threads**, both THP settings **always** (`prebuilt-original`) |
+| Explain a slow result | Inspect actual build/run parameters and compare matching experimental conditions before proposing changes |
+
+**Optional tuning, not a default:** for the 280M/100-iteration benchmark, `tuned-144`
+profile distributes six threads per physical CCD and reached approximately
+842,000 MB/s median Triad on the tested HBv4. The
+[tuning evidence](.github/skills/hbv4-stream-performance/references/tuning.md)
+records controls, repeated finalists, variability and scope; this is not a
+universal bandwidth threshold or a decisive win over the close 96-thread option.
+The independent
+[AMD prebuilt study](.github/skills/hbv4-stream-performance/references/prebuilt-tuning.md)
+also supports balanced placement; `prebuilt-144` preserves its fixed 650M/10
+workload and reached approximately 775,000 MB/s median Triad. Do not compare
+that number directly with the differently sized source workload. After either
+default run, the agent explains the observed 144-thread benefit and provides
+the relevant [manual command](.github/skills/hbv4-stream-performance/references/usage.md#optional-144-thread-runs);
+it does not automatically run a tuning sweep or change the baseline.
+
+The standalone helpers retain build/run provenance, verify numerical output
+and runtime thread binding, and summarize repeated Copy/Scale/Add/Triad
+bandwidth measurements. AMD license authorization and an approved idle-node
+run budget are required. Original and tuned profiles require separate THP
+approval and restore the original values afterward. The original source
+recipe additionally requires explicit approval to drop host caches before each
+trial; prebuilt and tuned profiles do not drop caches. The explicitly selected
+`normalized-176` comparison profile leaves THP unchanged. No cloud uploads or
+system compiler replacement are performed.
+
+Results describe tuned STREAM workloads, not a universal HBv4 optimum or a
+node-health verdict. The historical 280M and prebuilt 650M sizes fall below
+STREAM's four-times-total-L3 sizing rule on this node; 1.3B meets that size
+criterion but is a separate workload. See the
+[diagnosis reference](.github/skills/hbv4-stream-performance/references/diagnosis.md)
+for measured baselines and interpretation.
