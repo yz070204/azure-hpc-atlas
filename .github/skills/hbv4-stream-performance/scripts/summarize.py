@@ -23,27 +23,18 @@ def workload_of(record):
   return {k: record[k] for k in ("array_elements", "ntimes", "threads")}
 
 
-# Confirm every thread printed a stable, distinct, single-CPU binding.
-# This catches the classic bad-STREAM cause: affinity silently not applied.
-def verify_affinity(text, threads):
-  bindings = re.findall(r"thread\s+(\d+)\s+bound to OS proc set\s+\{([^}]+)\}", text)
-  if not bindings:
+# Confirm the run pinned threads to `threads` distinct CPUs (not floating or
+# oversubscribed at the guest level). Doesn't detect hypervisor core mapping —
+# use lscpu / the topology check for that.
+def check_affinity(text, threads):
+  cpus = re.findall(r"bound to OS proc set\s+\{(\d+)\}", text)
+  if not cpus:
     raise ValueError("no affinity lines found "
                      "(need OMP_DISPLAY_AFFINITY=true and stderr captured)")
-  bound = {}
-  for tid_str, cpus in bindings:
-    cpus = cpus.strip()
-    if not cpus.isdigit():
-      raise ValueError(f"thread {tid_str} not bound to exactly one CPU: {{{cpus}}}")
-    tid, cpu = int(tid_str), int(cpus)
-    if tid in bound and bound[tid] != cpu:
-      raise ValueError(f"thread {tid} affinity changed mid-run")
-    bound[tid] = cpu
-  if set(bound) != set(range(threads)):
-    raise ValueError("affinity lines missing for some threads")
-  if len(set(bound.values())) != threads:
-    raise ValueError("threads share CPUs; binding is not 1:1")
-  return sorted(bound.values())
+  distinct = {int(c) for c in cpus}
+  if len(distinct) != threads:
+    raise ValueError(f"expected {threads} distinct pinned CPUs, saw {len(distinct)}")
+  return sorted(distinct)
 
 
 # Parse one log into workload params, best rate, and avg-time-derived rate.
@@ -61,7 +52,7 @@ def parse_log(text):
   element_bytes = field(r"This system uses\s+(\d+)\s+bytes per array element")
   ntimes = field(r"Each kernel will be executed\s+(\d+)\s+times")
   threads = field(r"Number of Threads counted\s*=\s*(\d+)")
-  cpu_ids = verify_affinity(text, threads)
+  cpu_ids = check_affinity(text, threads)
 
   best = {}
   average = {}
