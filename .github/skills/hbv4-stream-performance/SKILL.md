@@ -29,7 +29,7 @@ If the size matches no known family, **stop and report it** — do not fall thro
 guessed recipe (a wrong recipe yields bad-but-plausible numbers, not an error).
 
 **Recipes vs targets:** the run recipe is defined for all four families, but measured
-comparison targets in [reference.md](reference.md) exist only for **HBv4/HX**. For
+comparison targets in [reference](references/stream-reference-hbv4-hx.md) exist only for **HBv4/HX**. For
 HBv2/HBv3 you can run and report, but there's no baseline to diagnose against yet — say
 so rather than comparing to an HBv4 number.
 
@@ -63,10 +63,10 @@ own) — and the summary states exactly what was done.
    [topology skill](../azure-hbv4-hx176-topology/SKILL.md); flag any mismatch.
 3. Check for **other memory consumers / pressure**, including cgroup limits.
 4. Run STREAM with the **optimal config** above and compare to the targets in
-   [reference.md](reference.md).
+   [reference](references/stream-reference-hbv4-hx.md).
 5. If the optimal run hits target but the user's doesn't, the gap is almost certainly
    their **config** — compiler flags, run parameters (threads/affinity), or huge pages.
-   Compare against [reference.md](reference.md).
+   Compare against [reference](references/stream-reference-hbv4-hx.md).
 
 ## Reporting
 Present a Copy/Scale/Add/Triad table with **median + range in MB/s** (from the runner's
@@ -76,7 +76,7 @@ evidence is thin, say inconclusive.
 
 ## Improving the result (when asked how to go faster)
 The real lever is placement: 144 threads balanced six per physical CCD gives ~2-3% higher
-Triad on HBv4/HX (see [reference.md](reference.md)). Offer it as a manual note and keep
+Triad on HBv4/HX (see [reference](references/stream-reference-hbv4-hx.md)). Offer it as a manual note and keep
 176 the default — the runner does not execute it; the mask is documented in the reference.
 Do **not** suggest shrinking the array to get a bigger number — that's cache inflation,
 not real bandwidth, and would drift the reported figure away from Azure's published specs.
