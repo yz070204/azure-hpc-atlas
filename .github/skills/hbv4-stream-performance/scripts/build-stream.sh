@@ -10,9 +10,11 @@ set -euo pipefail
 # compile flags below still apply) whenever the base image's AOCC changes.
 readonly AOCC_VERSION="4.0.0"
 
-# STREAM problem size — sized to overflow cache on a full HBv4/HX VM.
-# 280M doubles/array matches the previous cluster benchmark baseline.
-readonly ARRAY_SIZE="280000000"
+# STREAM array size. 560M doubles/array (4.48 GB each) is the default: larger than
+# aggregate L3, so its bandwidth aligns with Azure's published sustained figures.
+# (280M reads higher because it is cache-sensitive; 1.3B is the strict
+# larger-than-cache size — see reference.md.)
+readonly ARRAY_SIZE="560000000"
 readonly NTIMES="100"
 
 # Install AOCC into ./aocc-compiler-<version> and load its environment.
