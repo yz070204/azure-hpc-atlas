@@ -40,8 +40,9 @@ so rather than comparing to an HBv4 number.
   run the diagnostic workflow — don't just re-benchmark.
 
 ## Optimal run
-AOCC 4.0.0, 280M doubles/array, 100 iterations, **176 threads**, `GOMP_CPU_AFFINITY=0-175`,
+AOCC 4.0.0, 560M doubles/array, 100 iterations, **176 threads**, `GOMP_CPU_AFFINITY=0-175`,
 THP `always` (HBv4/HX; other families use their own thread/affinity recipe automatically).
+560M is the default because its bandwidth matches Azure's published sustained figures.
 Reuse a verified binary; build only if missing (see `scripts/build-stream.sh`). Put
 `stream` and `setenv_AOCC.sh` in `$WORK_ROOT`, pass the detected token, then run 3 trials:
 
@@ -73,6 +74,9 @@ summary), plus build, array/iterations, threads, affinity, THP, validation, and 
 Don't cherry-pick a peak. Low bandwidth alone isn't proof of bad hardware; if the
 evidence is thin, say inconclusive.
 
-*Optional tuning:* 144 threads balanced six per physical CCD gives ~2-3% higher Triad on
-HBv4/HX (see [reference.md](reference.md)). Offer it as a manual note and keep 176 the
-default — the runner does not execute it; the mask is documented in the reference.
+## Improving the result (when asked how to go faster)
+The real lever is placement: 144 threads balanced six per physical CCD gives ~2-3% higher
+Triad on HBv4/HX (see [reference.md](reference.md)). Offer it as a manual note and keep
+176 the default — the runner does not execute it; the mask is documented in the reference.
+Do **not** suggest shrinking the array to get a bigger number — that's cache inflation,
+not real bandwidth, and would drift the reported figure away from Azure's published specs.
