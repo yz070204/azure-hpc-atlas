@@ -36,12 +36,16 @@ configure_sku() {
   esac
 }
 
-# OpenMP runtime settings shared across SKUs.
+# OpenMP runtime settings shared across SKUs. OMP_DISPLAY_AFFINITY makes the
+# runtime print each thread's binding; the format is pinned to exactly what
+# summarize.py parses, so it doesn't depend on the runtime's default format.
 configure_omp() {
   export OMP_SCHEDULE=static
   export OMP_DYNAMIC=false
   export OMP_THREAD_LIMIT=256
   export OMP_STACKSIZE=256M
+  export OMP_DISPLAY_AFFINITY=true
+  export OMP_AFFINITY_FORMAT="thread %n bound to OS proc set {%A}"
 }
 
 # THP is a *global* kernel setting, not per-shell — it stays changed after this
@@ -72,8 +76,9 @@ main() {
   enable_thp
   sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
 
+  # 2>&1: affinity lines go to stderr, results to stdout - summarize.py needs both.
   runlog="stream-$host.log"
-  ./stream >> "$runlog"
+  ./stream >> "$runlog" 2>&1
   echo "Done. Results: $(realpath "$runlog")"
 }
 
