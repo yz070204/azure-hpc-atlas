@@ -13,7 +13,7 @@ Azure VM size that should apply this skill for stream run:
 
 ## When to do what
 - **"Run STREAM" / "check memory bandwidth"** → run the optimal config below and report.
-- **"Why is my STREAM slow?" / user brings their own numbers** → run the diagnostic workflow; don't just re-benchmark.
+- **"Why is my STREAM slow?" / user brings their own numbers** → scan for stream run dir from ~ first, ask to confirm which directory contains user binary, run script or logs. run the diagnostic workflow; don't just re-benchmark.
 
 ## Optimal run
 `source-original` recipe: AOCC 4.0.0, 280M doubles/array, 100 iterations, **176 threads**, THP on, `GOMP_CPU_AFFINITY=0-175`. Reuse verified binaries; build only if missing.
