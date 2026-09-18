@@ -4,36 +4,54 @@ Load this when diagnosing a result or explaining the optional tuning — not for
 a routine run. Applies to HBv4 and HX — same CPU and topology (EPYC 9V33X, 176
 cores, 4×44 NUMA, 24 CCDs); they differ only in total memory, which doesn't affect
 STREAM bandwidth as long as the working set fits (it does). All numbers are observed
-medians on one quiet `Standard_HB176rs_v4` node
-(AOCC 4.0.0, original flags, 280M doubles/array, 100 iterations, THP always).
+medians on one quiet full-size HBv4 node
+(AOCC 4.0.0, original flags, 100 iterations, THP always). The default is
+560M doubles/array, whose bandwidth aligns with Azure's published sustained figures.
 They are reference points, **not guarantees or pass/fail thresholds**; run-to-run
 spread is ~1%. Always label the array size — different sizes are not comparable.
 
-## Target numbers (HBv4/HX, 280M/100)
+## Target numbers (HBv4/HX, 560M/100) — default
 
 Decimal GB/s (×1000 for MB/s):
 
 | Config | Copy | Scale | Add | Triad |
 |---|---:|---:|---:|---:|
-| 176 threads, THP always (default) | 693 | 697 | 825 | 818 |
-| 144 threads, CCD-balanced (optional) | 708 | 714 | 849 | 842 |
+| 176 threads, THP always (default) | 693 | 694 | 764 | 764 |
+| 144 threads, CCD-balanced (optional) | 704 | 705 | 783 | 786 |
 
-These cover HBv4 and HX. HBv2/v3 need their own baselines before they mean anything.
+The default recipe. 176-thread Triad (~764 GB/s) lines up with Azure's published
+sustained bandwidth. 144-balanced beats 176 by ~2.9% on Triad and ~2.5% on Add. These
+cover HBv4 and HX; HBv2/v3 would need their own reference numbers before they mean
+anything.
 
-## Target numbers (HBv4/HX, 560M/100)
+(An earlier test of this size showed only ~0.3% for 144-balanced — that was a
+test-condition artifact, not a real size effect: THP *defrag* was left at `madvise` while
+only `enabled` was `always`, and cache drops hit the 176 trials but not the 144 trials.
+With defrag `always` on both knobs, consistent cache handling and interleaved trials, the
+gain reproduces cleanly with tight ranges.)
+
+## Target numbers (HBv4/HX, 280M/100) — smaller array
 
 | Config | Copy | Scale | Add | Triad |
 |---|---:|---:|---:|---:|
-| 176 threads, THP always (default) | 693 | 694 | 764 | 764 |
-| 144 threads, CCD-balanced | 704 | 705 | 783 | 786 |
+| 176 threads, THP always | 693 | 697 | 825 | 818 |
+| 144 threads, CCD-balanced | 708 | 714 | 849 | 842 |
 
-144-balanced beats 176 by ~2.9% on Triad here (786 vs 764 GB/s) and ~2.5% on Add, in
-line with the ~2% at 280M. An earlier test showed only ~0.3% here, but that was a
-test-condition artifact, not a real size effect: THP *defrag* was left at `madvise`
-while only `enabled` was `always`, and cache drops were applied to the 176 trials but
-not the 144 trials. With defrag `always` on both knobs, consistent cache handling and
-interleaved trials, the gain reproduces cleanly with tight ranges (144-balanced within
-~0.3%).
+Not the default: 280M is cache-sensitive, so its Triad (~818 GB/s) reads *higher* than
+published sustained figures (see Array size). A smaller array is a bigger number, not more
+bandwidth — use 560M as the figure to report.
+
+## Target numbers (HBv4/HX, 1.3B/100) — strict larger-than-cache
+
+| Config | Copy | Scale | Add | Triad |
+|---|---:|---:|---:|---:|
+| 176 threads, THP always | 694 | 695 | 733 | 739 |
+| 144 threads, CCD-balanced | 703 | 703 | 754 | 758 |
+
+The only tested size that satisfies STREAM's strict 4×-LLC rule (10.4 GB/array), so this
+is the textbook larger-than-cache DRAM measurement. 144-balanced beats 176 by ~2.6% on
+Triad and ~2.8% on Add — the same ~2-3% placement pattern as the smaller sizes. Slower
+per run than 560M; use it when you want the strict figure rather than the fast default.
 
 ## AMD prebuilt binary (650M/10)
 
@@ -58,16 +76,23 @@ count; the clean isolation of placement itself is the balanced-vs-uneven-at-144 
 
 ## Array size
 
-280M doubles/array (2.24 GB each, 6.72 GB total) is the baseline used here — keep it
-for comparability and regression across runs. Note it sits only just above aggregate
-L3 (24 × 96 MiB ≈ 2.3 GiB), short of the 4×-LLC that STREAM's official rule wants, so
-it is cache-sensitive: cache-served reads inflate the reported rate, which is why the
-280M Triad (~818 GB/s) reads *higher* than published sustained-bandwidth figures. The
-larger-array numbers here (~764 GB/s at 560M, ~755 at 1.3B) are the ones that line up
-with sustained DRAM specs. For a strict larger-than-cache DRAM measurement, use 1.3B
-doubles/array (10.4 GB each), which satisfies the rule. Don't treat different sizes as
-interchangeable DRAM numbers — STREAM reports algorithmic bytes ÷ time, not
-memory-controller traffic.
+560M doubles/array (4.48 GB each, 13.4 GB total) is the default: each array is larger
+than aggregate L3 (24 × 96 MiB ≈ 2.3 GiB), so its Triad (~764 GB/s) lines up with Azure's
+published sustained-bandwidth figures. It's the number a customer can verify against the
+docs.
+
+Two other sizes:
+- **280M** (2.24 GB/array) reads *higher* (~818 GB/s Triad) because it's cache-sensitive —
+  cache-served reads inflate the rate. Fine for quick placement comparisons, but don't
+  report it as the VM's bandwidth; it will look like an overclaim.
+- **1.3B** (10.4 GB/array) is the only tested size that satisfies STREAM's strict 4×-LLC
+  rule — the textbook larger-than-cache DRAM measurement (~739 GB/s at 176 threads). 560M
+  is close to sustained and much faster; 1.3B is the strict version.
+
+560M itself is still below the strict 4× rule, so it's the "matches published docs, runs
+fast" choice rather than the textbook one. Don't treat different sizes as interchangeable —
+STREAM reports algorithmic bytes ÷ time, not memory-controller traffic, and a smaller
+array gives a bigger number without more real bandwidth.
 
 ## THP
 
@@ -84,10 +109,13 @@ fair comparison. The runner drops consistently for every trial.
 
 ## Optional 144-thread CCD-balanced tuning
 
-On this node/workload, 144 threads placed six per physical CCD gave ~2% higher
-best-rate Triad and ~17% higher average-time (sustained) Triad than the 176-thread
-default. Offer it as a manual try; keep 176 the default and don't apply it
-automatically. The mask takes six CPUs per physical CCD, 36 per NUMA, 144 total:
+On this node, 144 threads placed six per physical CCD gives ~2-3% higher Triad than the
+176-thread default (~2.9% at the 560M default; ~2% at 280M), with a larger gain on
+average-time (sustained) rate. This is the real answer to "how do I improve the number" —
+a genuine placement gain. Do *not* suggest shrinking the array to get a bigger figure;
+that's cache inflation, not bandwidth. Offer 144-balanced as a manual try; keep 176 the
+default and don't apply it automatically. The mask takes six CPUs per physical CCD, 36
+per NUMA, 144 total:
 
 ```text
 for NUMA base in 0, 44, 88, 132:
@@ -107,7 +135,8 @@ Don't swap in a faster or differently sized workload and call it fixed. Then
 compare against the target above, changing one factor at a time:
 
 - **Metric** — which kernel; MB/s vs GB/s; best-iteration vs average-time vs median.
-- **Array/iterations** — 280M/100 is the baseline; don't compare against 650M or 1.3B.
+- **Array/iterations** — 560M/100 is the default; match it, and don't compare against
+  280M, 650M or 1.3B (different sizes aren't comparable).
 - **Build** — AOCC 4.0.0, original flags, `-march` target, binary hash.
 - **Run** — threads requested vs counted, actual affinity, stray OMP/GOMP/KMP
   variables, NUMA policy, THP mode.
