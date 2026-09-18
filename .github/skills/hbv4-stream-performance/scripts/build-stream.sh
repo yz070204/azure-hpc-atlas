@@ -1,51 +1,52 @@
-#!/usr/bin/env bash
+#!/bin/bash
+#
+# Builds the STREAM memory-bandwidth benchmark with AMD's AOCC compiler
+# using the pinned recipe for Azure HBv4 / HX VMs. AOCC and stream.c are
+# downloaded fresh; run from a scratch dir — artifacts land in the CWD.
+
 set -euo pipefail
 
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-source "$script_dir/lib/checks.sh"
-source "$script_dir/lib/records.sh"
+# AOCC version expected on the base image. Bump this (and re-verify the
+# compile flags below still apply) whenever the base image's AOCC changes.
+readonly AOCC_VERSION="4.0.0"
 
-# 1. Settings and checks.
-aocc=${1:-}
-source_file=${2:-}
-output=${3:-}
-array_size=${STREAM_ARRAY_SIZE:-280000000}
-ntimes=${STREAM_NTIMES:-100}
-check_build_request "$@"
+# STREAM problem size — sized to overflow cache on a full HBv4/HX VM.
+# 280M doubles/array matches the previous cluster benchmark baseline.
+readonly ARRAY_SIZE="280000000"
+readonly NTIMES="100"
 
-aocc=$(realpath -e "$aocc")
-source_file=$(realpath -e "$source_file")
-output=$(realpath -m "$output")
-mkdir "$output"
-exec > >(tee "$output/build.log") 2>&1
-trap 'echo "ERROR: Build failed at line $LINENO; retain build.log." >&2' ERR
+# Install AOCC into ./aocc-compiler-<version> and load its environment.
+install_aocc() {
+  local tarball="aocc-compiler-${AOCC_VERSION}.tar"
+  wget "https://download.amd.com/developer/eula/aocc-compiler/${tarball}"
+  tar -xf "${tarball}"
+  ( cd "aocc-compiler-${AOCC_VERSION}" && ./install.sh )
+  source "aocc-compiler-${AOCC_VERSION}/setenv_AOCC.sh"
+}
 
-# 2. Use only the selected compiler and its libraries.
-export PATH="$aocc/bin:/usr/bin:/bin"
-export LIBRARY_PATH="$aocc/lib:$aocc/lib32"
-export LD_LIBRARY_PATH="$aocc/lib:$aocc/lib32"
-unset CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LD_PRELOAD
-"$aocc/bin/clang" --version | tee "$output/compiler-version.txt"
-grep -q AOCC "$output/compiler-version.txt" || die "The selected compiler is not AOCC."
-cp "$source_file" "$output/stream.c"
-record_build_environment
+# Fetch a clean copy of the upstream STREAM source.
+download_stream() {
+  rm -f stream.c
+  wget "https://raw.githubusercontent.com/jeffhammond/STREAM/master/stream.c"
+}
 
-# 3. Compile the original STREAM recipe; also save the exact command.
-run_and_record "$output/build-manifest.txt" \
-  "$aocc/bin/clang" "$output/stream.c" \
-  -fopenmp -mcmodel=large -DSTREAM_TYPE=double \
-  "-DSTREAM_ARRAY_SIZE=$array_size" "-DNTIMES=$ntimes" \
-  -ffp-contract=fast -fnt-store \
-  -O3 -Ofast -ffast-math -ffinite-loops \
-  -march=native -zopt -fremap-arrays \
-  -mllvm -enable-strided-vectorization -fvector-transform \
-  -o "$output/stream"
+# Compile STREAM with the pinned AOCC recipe. Do not change these flags.
+build_stream() {
+  clang stream.c \
+    -fopenmp -mcmodel=large \
+    -DSTREAM_TYPE=double -DSTREAM_ARRAY_SIZE="${ARRAY_SIZE}" -DNTIMES="${NTIMES}" \
+    -ffp-contract=fast -fnt-store \
+    -O3 -Ofast -ffast-math -ffinite-loops \
+    -march=native -zopt -fremap-arrays \
+    -mllvm -enable-strided-vectorization -fvector-transform \
+    -o stream
+}
 
-# 4. Check the executable and record its identity.
-[[ -x $output/stream ]] || die "Compiler did not produce an executable."
-ldd "$output/stream" | tee "$output/libraries.txt"
-if grep -q 'not found' "$output/libraries.txt"; then
-  die "Unresolved runtime library."
-fi
-sha256sum "$output/stream" >> "$output/build-manifest.txt"
-echo "Build complete: $output/stream"
+main() {
+  install_aocc
+  download_stream
+  build_stream
+  echo "Build complete: $(realpath stream)"
+}
+
+main "$@"
