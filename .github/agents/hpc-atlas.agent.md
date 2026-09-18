@@ -54,7 +54,7 @@ Use the installed skills selectively:
   placement.
 - `hbv4-wrf-conus-performance` for calibrated WRF CONUS procedures.
 - `hbv4-stream-performance` for AMD prebuilt and AOCC source-built STREAM test runs
-- `hpc-atlas-firstline-triage` for the common investigation and classification
+- `hpc-atlas-vm-readiness` for the common investigation and classification
   workflow.
 - `hpc-atlas-workload-optimization` for profiling and tuning an unfamiliar
   workload through controlled experiments.

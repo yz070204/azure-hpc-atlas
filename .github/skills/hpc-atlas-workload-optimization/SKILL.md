@@ -68,7 +68,7 @@ settings from effective settings. Do not assume the current shell or an
 edited script represents the historical run. Avoid unrelated users' data,
 whole-environment dumps, and secrets.
 
-Use the low-application-performance procedure in `hpc-atlas-firstline-triage`
+Use the low-application-performance procedure in `hpc-atlas-vm-readiness`
 to separate configuration, inherited session state, resource limits, and
 competing work. A fresh shell is not an idle VM and may retain affinity or
 cgroup limits. Use an explicit launch environment and an approved idle or

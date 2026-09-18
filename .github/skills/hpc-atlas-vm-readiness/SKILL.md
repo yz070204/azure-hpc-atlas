@@ -1,9 +1,9 @@
 ---
-name: hpc-atlas-firstline-triage
+name: hpc-atlas-vm-readiness
 description: Perform self-service and first-line readiness or performance triage for Azure HPC VMs. Use for requests such as "check this VM", "check readiness", "check IB", or "why is my performance bad", HPC health checks, running or interpreting Azure HPC diagnostics under /opt/azurehpc/diagnostics, slow benchmarks, MPI jobs or HPC applications, missing capabilities, unexpected CPU or NUMA topology, or missing InfiniBand.
 ---
 
-# HPC Atlas first-line triage
+# HPC Atlas VM readiness
 
 Use this skill to coordinate a minimal, evidence-based self-triage
 investigation on the affected VM. It does not replace SKU-specific
@@ -177,9 +177,8 @@ experimental baselines. Diagnose the actual build/run first, without silently
 switching workloads. Ordinary run requests default to original source at
 176 threads with THP always; explicit AMD prebuilt requests use its original
 176-thread launch with THP always. Mention optional 144-thread CCD balancing,
-but run it only when requested. Readiness alone does not authorize a run;
-obtain license authorization, a bounded idle-node benchmark budget, and separate
-approval for THP changes and original-source cache drops.
+but run it only when requested. A direct STREAM run request should proceed with
+the STREAM skill's documented bounded runner behavior.
 
 Progress in this order:
 

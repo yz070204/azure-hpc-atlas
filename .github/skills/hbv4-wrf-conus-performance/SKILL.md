@@ -115,7 +115,7 @@ python3 -c 'import numpy; import netCDF4; print("Comparison dependencies availab
 The inventory currently searches `/opt`, home, and local mounts for candidates;
 its output is discovery, not proof of a usable build. A fresh shell is not
 an idle VM. For unexplained contention or environment differences, use
-[first-line triage](../hpc-atlas-firstline-triage/SKILL.md).
+[VM readiness](../hpc-atlas-vm-readiness/SKILL.md).
 
 ## 2. Build or reuse
 
