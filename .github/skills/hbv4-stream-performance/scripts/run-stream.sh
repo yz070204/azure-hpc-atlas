@@ -1,12 +1,17 @@
 #!/bin/bash
 #
-# Runs the STREAM memory-bandwidth benchmark on an Azure HB-series VM with the
-# per-SKU thread/affinity recipe. Expects a prebuilt `stream` binary and AOCC's
-# setenv script already in the working dir (see build-stream.sh).
+# Runs the STREAM memory-bandwidth benchmark on an Azure HBv4/HX VM with the
+# per-SKU thread/affinity recipe, N times, then prints a median/range summary.
+# Expects a prebuilt `stream` binary and AOCC's setenv script in <work-dir>,
+# and summarize.py next to this script (see build-stream.sh).
 #
-# Usage: run-stream.sh <work-dir> <sku>    # sku: hbrs_v2 | hbrs_v3 | hbrs_v4
+# Usage: run-stream.sh <work-dir> <sku> [trials]
+#   sku:    hbrs_v2 | hbrs_v3 | hbrs_v4 | hx_v4   (HX v4 == HBv4)
+#   trials: number of runs to aggregate (default 3)
 
 set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 readonly THP_ENABLED="/sys/kernel/mm/transparent_hugepage/enabled"
 readonly THP_DEFRAG="/sys/kernel/mm/transparent_hugepage/defrag"
@@ -25,12 +30,12 @@ configure_sku() {
       export OMP_NUM_THREADS=16
       export GOMP_CPU_AFFINITY="0,8,16,24,30,38,46,54,60,68,76,84,90,98,106,114"
       ;;
-    hbrs_v4)
+    hbrs_v4|hx_v4)   # HBv4 and HX share the same CPU/topology
       export OMP_NUM_THREADS=176
       export GOMP_CPU_AFFINITY="0-175"
       ;;
     *)
-      echo "ERROR: unknown SKU '$1' (expected hbrs_v2|hbrs_v3|hbrs_v4)" >&2
+      echo "ERROR: unknown SKU '$1' (expected hbrs_v2|hbrs_v3|hbrs_v4|hx_v4)" >&2
       exit 1
       ;;
   esac
@@ -48,8 +53,8 @@ configure_omp() {
   export OMP_AFFINITY_FORMAT="thread %n bound to OS proc set {%A}"
 }
 
-# THP is a *global* kernel setting, not per-shell — it stays changed after this
-# script exits. Force it on for the run; the EXIT trap puts it back to SAVED_THP.
+# THP is a *global* kernel setting, not per-shell - it stays changed after this
+# script exits. Force it on (both knobs) for the run; the EXIT trap restores it.
 enable_thp() {
   echo always | sudo tee "$THP_ENABLED" "$THP_DEFRAG" >/dev/null
 }
@@ -58,14 +63,16 @@ restore_thp() {
 }
 
 main() {
-  local wdir=${1:?usage: run-stream.sh <work-dir> <sku>}
-  local sku=${2:?missing SKU (hbrs_v2|hbrs_v3|hbrs_v4)}
-  local host runlog
+  local wdir=${1:?usage: run-stream.sh <work-dir> <sku> [trials]}
+  local sku=${2:?missing SKU (hbrs_v2|hbrs_v3|hbrs_v4|hx_v4)}
+  local trials=${3:-3}
+  local host rundir i
   host="$(hostname | tr '[:upper:]' '[:lower:]')"
 
   cd "$wdir"
-  mkdir "stream-$host"
-  cd "stream-$host"
+  rundir="stream-$host"
+  mkdir "$rundir"
+  cd "$rundir"
   cp ../stream .
   source ../setenv_AOCC.sh
 
@@ -74,12 +81,22 @@ main() {
 
   trap restore_thp EXIT
   enable_thp
-  sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
 
+  # One log per trial; drop caches before each so no trial reads warm cache.
   # 2>&1: affinity lines go to stderr, results to stdout - summarize.py needs both.
-  runlog="stream-$host.log"
-  ./stream >> "$runlog" 2>&1
-  echo "Done. Results: $(realpath "$runlog")"
+  for ((i = 1; i <= trials; i++)); do
+    echo "Trial $i/$trials..."
+    sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
+    ./stream > "stream-$host-$i.log" 2>&1
+  done
+
+  echo
+  echo "=== Summary across $trials trials (median / range) ==="
+  python3 "$script_dir/summarize.py" "stream-$host-"*.log
+
+  echo
+  echo "Host state: THP set to 'always' for the run and restored to '${SAVED_THP:-madvise}'; page caches dropped before each trial."
+  echo "Logs: $(realpath .)"
 }
 
 main "$@"
