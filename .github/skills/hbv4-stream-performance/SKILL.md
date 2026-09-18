@@ -1,42 +1,78 @@
 ---
 name: hbv4-stream-performance
-description: Run STREAM optimally on a full-size Azure HBv4/HX VM, and triage when measured bandwidth is lower than expected.
+description: Run STREAM optimally on a full-size Azure HBv4/HX VM (176-core EPYC 9V33X), and triage when measured bandwidth is lower than expected.
 user-invocable: false
 ---
 
 # STREAM on HBv4 / HX
-Azure VM size that should apply this skill for stream run:
-- `Standard_HB176rs_v4`
-- `Standard_HB176s_v4`
-- `Standard_HX176rs_v4`
-- `Standard_HX176s_v4`
+
+Applies to the full-size SKU of the Azure HBv4 and HX families, plus HBv2/HBv3. STREAM
+measures memory bandwidth, so it runs on any full-size member of a family.
+
+## Detect the platform (do this first)
+Read the VM size from Azure IMDS, then map it to a platform token — don't guess the
+mapping:
+
+```bash
+curl -s -H Metadata:true "http://169.254.169.254/metadata/instance/compute/vmSize?api-version=2021-02-01&format=text"
+```
+
+| VM size | platform token |
+|---|---|
+| `Standard_HB176*_v4` | `hbv4` |
+| `Standard_HX176*` | `hx` |
+| `Standard_HB*_v3` | `hbv3` |
+| `Standard_HB*_v2` | `hbv2` |
+
+HBv4 and HX are distinct SKUs but the same 176-core silicon, so they share one recipe.
+If the size matches no known family, **stop and report it** — do not fall through to a
+guessed recipe (a wrong recipe yields bad-but-plausible numbers, not an error).
+
+**Recipes vs targets:** the run recipe is defined for all four families, but measured
+comparison targets in [reference.md](reference.md) exist only for **HBv4/HX**. For
+HBv2/HBv3 you can run and report, but there's no baseline to diagnose against yet — say
+so rather than comparing to an HBv4 number.
 
 ## When to do what
 - **"Run STREAM" / "check memory bandwidth"** → run the optimal config below and report.
-- **"Why is my STREAM slow?" / user brings their own numbers** → scan for stream run dir from ~ first, ask to confirm which directory contains user binary, run script or logs. run the diagnostic workflow; don't just re-benchmark.
+- **"Why is my STREAM slow?" / user brings their own numbers** → find their run directory
+  (scan from `~`, confirm which directory holds their binary, run script, or logs), then
+  run the diagnostic workflow — don't just re-benchmark.
 
 ## Optimal run
-`source-original` recipe: AOCC 4.0.0, 280M doubles/array, 100 iterations, **176 threads**, THP on, `GOMP_CPU_AFFINITY=0-175`. Reuse verified binaries; build only if missing.
-Set `SKILL_DIR`, `WORK_ROOT`, `AOCC_ROOT`; output to a **new** directory.
+AOCC 4.0.0, 280M doubles/array, 100 iterations, **176 threads**, `GOMP_CPU_AFFINITY=0-175`,
+THP `always` (HBv4/HX; other families use their own thread/affinity recipe automatically).
+Reuse a verified binary; build only if missing (see `scripts/build-stream.sh`). Put
+`stream` and `setenv_AOCC.sh` in `$WORK_ROOT`, pass the detected token, then run 3 trials:
 
 ```bash
-STREAM_RUN_APPROVED=yes STREAM_THP_APPROVED=yes STREAM_CACHE_DROP_APPROVED=yes \
-bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT/build/stream" "$WORK_ROOT/run" 3 "$AOCC_ROOT/lib"
+bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT" hbv4 3
 ```
 
-**Approvals:** THP changes and cache drops modify host state, and a cache drop can't be undone. Default behavior: ask before setting these flags.
-**YOLO mode:** if the user has enabled YOLO mode, skip the up-front requests and set the flags directly — then, in the final report, state exactly what was done to the host: whether THP was toggled and restored, and that host caches were dropped (call this out explicitly, since it's irreversible).
-
-THP changes and cache drops need explicit approval — a cache drop can't be undone. Never kill jobs or change persistent host settings implicitly.
+The runner sets THP `always` on both `enabled` and `defrag`, drops caches before each
+trial, runs STREAM 3× into separate logs, prints a median/range summary, and restores
+THP to its original value on exit. It changes host state (THP, page cache) without
+prompting — both are benign here (THP is restored on exit; page cache repopulates on its
+own) — and the summary states exactly what was done.
 
 ## Diagnostic workflow (user's own results look off)
-1. Detect and report the **VM size**.
-2. Check **NUMA topology + total memory** against the [topology skill](../azure-hbv4-hx176-topology/SKILL.md); flag any mismatch.
-3. Check for **other memory consumers / pressure** on the VM, including cgroup limits.
-4. Run STREAM with the **optimal config** above and compare to target.
-5. If the optimal run hits target but the user's doesn't, the gap is almost certainly their **config** — compiler flags, run parameters (threads/affinity), or huge pages. Compare against the reference data (provided separately).
+1. Detect and report the **VM size / platform** (see "Detect the platform" above — same
+   IMDS command).
+2. Check **NUMA topology + total memory** against the
+   [topology skill](../azure-hbv4-hx176-topology/SKILL.md); flag any mismatch.
+3. Check for **other memory consumers / pressure**, including cgroup limits.
+4. Run STREAM with the **optimal config** above and compare to the targets in
+   [reference.md](reference.md).
+5. If the optimal run hits target but the user's doesn't, the gap is almost certainly
+   their **config** — compiler flags, run parameters (threads/affinity), or huge pages.
+   Compare against [reference.md](reference.md).
 
 ## Reporting
-Report Copy/Scale/Add/Triad **medians + range in MB/s**, plus build, array/iterations, threads, affinity, THP, validation, and log path. Don't cherry-pick a peak. Low bandwidth alone isn't proof of bad hardware.
+Present a Copy/Scale/Add/Triad table with **median + range in MB/s** (from the runner's
+summary), plus build, array/iterations, threads, affinity, THP, validation, and log path.
+Don't cherry-pick a peak. Low bandwidth alone isn't proof of bad hardware; if the
+evidence is thin, say inconclusive.
 
-*Optional:* 144 threads balanced 6 per physical CCD improved results in our HBv4 experiments — offer it as a manual try, but keep the 176-thread default unless asked.
+*Optional tuning:* 144 threads balanced six per physical CCD gives ~2-3% higher Triad on
+HBv4/HX (see [reference.md](reference.md)). Offer it as a manual note and keep 176 the
+default — the runner does not execute it; the mask is documented in the reference.
