@@ -5,9 +5,9 @@
 # Expects a prebuilt `stream` binary and AOCC's setenv script in <work-dir>,
 # and summarize.py next to this script (see build-stream.sh).
 #
-# Usage: run-stream.sh <work-dir> <sku> [trials]
-#   sku:    hbrs_v2 | hbrs_v3 | hbrs_v4 | hx_v4   (HX v4 == HBv4)
-#   trials: number of runs to aggregate (default 3)
+# Usage: run-stream.sh <work-dir> <platform> [trials]
+#   platform: hbv2 | hbv3 | hbv4 | hx   (full-size SKU in the family)
+#   trials:   number of runs to aggregate (default 3)
 
 set -euo pipefail
 
@@ -22,20 +22,20 @@ readonly SAVED_THP="$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_ENABLED")"
 # Per-SKU thread count and CPU affinity (physical-core layout).
 configure_sku() {
   case "$1" in
-    hbrs_v2)
+    hbv2)
       export OMP_NUM_THREADS=32
       export GOMP_CPU_AFFINITY="0,1,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,61,64,68,72,76,80,84,88,92,96,100,104,108,112,116"
       ;;
-    hbrs_v3)
+    hbv3)
       export OMP_NUM_THREADS=16
       export GOMP_CPU_AFFINITY="0,8,16,24,30,38,46,54,60,68,76,84,90,98,106,114"
       ;;
-    hbrs_v4|hx_v4)   # HBv4 and HX share the same CPU/topology
+    hbv4|hx)   # different SKUs, same 176-core silicon -> same STREAM recipe
       export OMP_NUM_THREADS=176
       export GOMP_CPU_AFFINITY="0-175"
       ;;
     *)
-      echo "ERROR: unknown SKU '$1' (expected hbrs_v2|hbrs_v3|hbrs_v4|hx_v4)" >&2
+      echo "ERROR: unknown platform '$1' (expected hbv2|hbv3|hbv4|hx)" >&2
       exit 1
       ;;
   esac
@@ -63,8 +63,8 @@ restore_thp() {
 }
 
 main() {
-  local wdir=${1:?usage: run-stream.sh <work-dir> <sku> [trials]}
-  local sku=${2:?missing SKU (hbrs_v2|hbrs_v3|hbrs_v4|hx_v4)}
+  local wdir=${1:?usage: run-stream.sh <work-dir> <platform> [trials]}
+  local platform=${2:?missing platform (hbv2|hbv3|hbv4|hx)}
   local trials=${3:-3}
   local host rundir i
   host="$(hostname | tr '[:upper:]' '[:lower:]')"
@@ -76,7 +76,7 @@ main() {
   cp ../stream .
   source ../setenv_AOCC.sh
 
-  configure_sku "$sku"
+  configure_sku "$platform"
   configure_omp
 
   trap restore_thp EXIT
