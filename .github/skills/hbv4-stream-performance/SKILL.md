@@ -5,12 +5,11 @@ user-invocable: false
 ---
 
 # STREAM on HBv4 / HX
-Azure VM size that should apply this skill:
+Azure VM size that should apply this skill for stream run:
 - `Standard_HB176rs_v4`
 - `Standard_HB176s_v4`
 - `Standard_HX176rs_v4`
 - `Standard_HX176s_v4`
-STREAM does not test InfiniBand. Other SKUs need their own topology.
 
 ## When to do what
 - **"Run STREAM" / "check memory bandwidth"** → run the optimal config below and report.
