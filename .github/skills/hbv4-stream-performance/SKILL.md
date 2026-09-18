@@ -18,12 +18,15 @@ STREAM does not test InfiniBand. Other SKUs need their own topology.
 
 ## Optimal run
 `source-original` recipe: AOCC 4.0.0, 280M doubles/array, 100 iterations, **176 threads**, THP on, `GOMP_CPU_AFFINITY=0-175`. Reuse verified binaries; build only if missing.
-Set `SKILL_DIR`, `WORK_ROOT`, `AOCC_ROOT`; output to a **new** directory. Set approval flags only after approval:
+Set `SKILL_DIR`, `WORK_ROOT`, `AOCC_ROOT`; output to a **new** directory.
 
 ```bash
 STREAM_RUN_APPROVED=yes STREAM_THP_APPROVED=yes STREAM_CACHE_DROP_APPROVED=yes \
 bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT/build/stream" "$WORK_ROOT/run" 3 "$AOCC_ROOT/lib"
 ```
+
+**Approvals:** THP changes and cache drops modify host state, and a cache drop can't be undone. Default behavior: ask before setting these flags.
+**YOLO mode:** if the user has enabled YOLO mode, skip the up-front requests and set the flags directly — then, in the final report, state exactly what was done to the host: whether THP was toggled and restored, and that host caches were dropped (call this out explicitly, since it's irreversible).
 
 THP changes and cache drops need explicit approval — a cache drop can't be undone. Never kill jobs or change persistent host settings implicitly.
 
