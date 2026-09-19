@@ -6,7 +6,7 @@ user-invocable: false
 
 # Azure HBv4 and HX 176-vCPU topology
 
-Applies only to full-size 176-vCPU HBv4 and HX sizes: names matching `Standard_HB176*_v4` or `Standard_HX176*` with no hyphen after `176` (e.g. `Standard_HB176rs_v4`, `Standard_HX176rs`). Never apply it to constrained-core sizes (e.g. `Standard_HB176-144rs_v4`). When naming sizes to users, use only the public examples above.
+Applies only to full-size 176-vCPU HBv4 and HX sizes: names matching `Standard_HB176*_v4` or `Standard_HX176*` with no hyphen after `176` (e.g. `Standard_HB176rs_v4`, `Standard_HX176rs`). Never apply it to constrained-core sizes (e.g. `Standard_HB176-144rs_v4`).
 
 ## Terms
 - **vCPU**: VM-visible processor ID `0-175`. **vNUMA**: VM-visible NUMA node `0-3`.
