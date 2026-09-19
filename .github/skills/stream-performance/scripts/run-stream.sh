@@ -16,8 +16,10 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 readonly THP_ENABLED="/sys/kernel/mm/transparent_hugepage/enabled"
 readonly THP_DEFRAG="/sys/kernel/mm/transparent_hugepage/defrag"
 
-# Current THP mode, captured before we touch it, so the trap can restore it.
-readonly SAVED_THP="$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_ENABLED")"
+# Current THP modes, captured before we touch them, so the trap can restore
+# each knob to its own original value (they often differ, e.g. always/madvise).
+readonly SAVED_THP_ENABLED="$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_ENABLED")"
+readonly SAVED_THP_DEFRAG="$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_DEFRAG")"
 
 # Per-SKU thread count and CPU affinity (physical-core layout).
 configure_sku() {
@@ -59,7 +61,8 @@ enable_thp() {
   echo always | sudo tee "$THP_ENABLED" "$THP_DEFRAG" >/dev/null
 }
 restore_thp() {
-  echo "${SAVED_THP:-madvise}" | sudo tee "$THP_ENABLED" "$THP_DEFRAG" >/dev/null
+  echo "${SAVED_THP_ENABLED:-madvise}" | sudo tee "$THP_ENABLED" >/dev/null
+  echo "${SAVED_THP_DEFRAG:-madvise}" | sudo tee "$THP_DEFRAG" >/dev/null
 }
 
 main() {
@@ -95,7 +98,7 @@ main() {
   python3 "$script_dir/summarize.py" "stream-$host-"*.log
 
   echo
-  echo "Host state: THP set to 'always' for the run and restored to '${SAVED_THP:-madvise}'; page caches dropped before each trial."
+  echo "Host state: THP set to 'always' for the run and restored to enabled='${SAVED_THP_ENABLED:-madvise}', defrag='${SAVED_THP_DEFRAG:-madvise}'; page caches dropped before each trial."
   echo "Logs: $(realpath .)"
 }
 
