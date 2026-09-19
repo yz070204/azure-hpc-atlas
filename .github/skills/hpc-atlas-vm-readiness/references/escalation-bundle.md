@@ -1,81 +1,33 @@
-# HPC Atlas escalation bundle
+# Escalation bundle
 
-Prepare this bundle only after minimal triage cannot resolve the issue or the
-evidence supports `possible-platform-or-node-health`.
+Write `escalation.md` in the investigation folder (`~/hpc-atlas-output/<timestamp>/`) with this template. Include only evidence relevant to the symptom.
 
-## Case summary
+```markdown
+## Summary
+- Time (UTC):
+- VM size / region:
+- Image version / kernel:
+- Symptom; first seen; repeatable; previously working:
+- Classification / confidence:
 
-```text
-Timestamp and time zone:
-Azure VM size:
-Region:
-OS image and version:
-Kernel:
-Symptom:
-First occurrence:
-Repeatability:
-Previously working:
-Primary classification:
-Confidence:
-```
-
-## Expected versus observed
-
-| Item | Expected | Observed | Source or command |
+## Expected vs observed
+| Item | Expected | Observed | Command/source |
 |---|---|---|---|
-| Capability |  |  |  |
-| Topology |  |  |  |
-| Device state |  |  |  |
-| Performance metric |  |  |  |
 
 ## Reproduction
+Exact command, input, ranks/threads and binding, compiler/MPI versions, each repetition's result, whether the node was idle.
 
-Include:
+## Evidence
+Full output of the key commands. What was ruled out.
 
-- Exact workload or diagnostic command
-- Working directory and relevant input identity
-- Rank/thread count and placement
-- Compiler, MPI, and linked-library versions where relevant
-- Number of repetitions and individual results
-- Whether the node was otherwise idle
+## HPC diagnostics
+Archive path, collector version and SHA-256, flags, exit status, failed or skipped sections.
 
-## Evidence attachments
+## Actions taken
+Each action, its result, and whether it changed state (reboot, redeploy, resize).
 
-Attach only relevant outputs:
-
-- VM identity and SKU evidence
-- OS and kernel information
-- CPU/NUMA topology
-- Affinity and memory-placement evidence
-- Relevant PCI, driver, RDMA, network, or storage state
-- Benchmark provenance and raw result
-- Same-command comparison from another node, if available
-
-If the installed Azure HPC collector was used, include its version and SHA-256,
-exact flags, UTC collection time, exit status, and relevant collection errors
-or skipped sections. Identify the private archive location and distinguish
-collected evidence from supplemental checks (especially extended CPU topology
-and actual performance measurements). Follow `azure-hpc-diagnostics.md`.
-
-Do not attach credentials, access tokens, customer workload data, or broad
-system logs unrelated to the symptom.
-Do not attach the collector's raw tarball automatically: it can contain full
-journals, network/VM identifiers, and expanded shell-trace data. Prepare only
-reviewed, relevant, redacted evidence for sharing through an approved support
-channel, with user approval.
-
-## Actions already attempted
-
-List each action, result, and whether it changed system state. Explicitly note
-whether the VM was rebooted, redeployed, resized, or moved to another node.
-
-## Escalation question
-
-End with one concrete question for the receiving owner, for example:
-
-```text
-Can you investigate why the expected ConnectX-7 PCI function is absent on this
-node when the same image and SKU expose it on the comparison node?
+## Question for Azure support
+One concrete question, e.g. "Why is the expected ConnectX-7 PCI function absent on this node when the same image and SKU expose it on another node?"
 ```
 
-Avoid vague requests such as "please check the hardware."
+When handing over, tell the user to attach the investigation folder's contents, and that the diagnostics archive contains the full system journal, network addresses, and VM identifiers, so they should review it before attaching. Never include credentials, tokens, or customer data.
