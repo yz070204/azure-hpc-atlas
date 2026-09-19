@@ -77,6 +77,9 @@ main() {
   mkdir "$rundir"
   cd "$rundir"
   cp ../stream .
+  # setenv_AOCC.sh appends to vars like $LIBRARY_PATH without defining them
+  # first, which trips `set -u`; seed them empty before sourcing.
+  : "${LIBRARY_PATH:=}" "${LD_LIBRARY_PATH:=}" "${C_INCLUDE_PATH:=}" "${CPLUS_INCLUDE_PATH:=}"
   source ../setenv_AOCC.sh
 
   configure_sku "$platform"

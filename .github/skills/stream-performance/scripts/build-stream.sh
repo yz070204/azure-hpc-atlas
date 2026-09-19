@@ -2,7 +2,10 @@
 #
 # Builds the STREAM memory-bandwidth benchmark with AMD's AOCC compiler
 # using the pinned recipe for Azure HBv4 / HX VMs. AOCC and stream.c are
-# downloaded fresh; run from a scratch dir — artifacts land in the CWD.
+# downloaded fresh (unless already cached) into <work-dir>; all artifacts
+# land there, never in the caller's cwd.
+#
+# Usage: build-stream.sh <work-dir>
 
 set -euo pipefail
 
@@ -17,13 +20,31 @@ readonly AOCC_VERSION="4.0.0"
 readonly ARRAY_SIZE="560000000"
 readonly NTIMES="100"
 
-# Install AOCC into ./aocc-compiler-<version> and load its environment.
+# Install AOCC into ./aocc-compiler-<version> and load its environment. Skips
+# the download/install if a matching, working compiler is already cached in
+# the work dir from a prior run.
 install_aocc() {
-  local tarball="aocc-compiler-${AOCC_VERSION}.tar"
-  wget "https://download.amd.com/developer/eula/aocc-compiler/${tarball}"
-  tar -xf "${tarball}"
-  ( cd "aocc-compiler-${AOCC_VERSION}" && ./install.sh )
-  source "aocc-compiler-${AOCC_VERSION}/setenv_AOCC.sh"
+  local install_dir="aocc-compiler-${AOCC_VERSION}"
+  local setenv="${install_dir}/setenv_AOCC.sh"
+
+  if [[ ! -x "${install_dir}/bin/clang" ]]; then
+    local tarball="aocc-compiler-${AOCC_VERSION}.tar"
+    rm -rf "${install_dir}" "${tarball}" setenv_AOCC.sh "${install_dir}_module"
+    wget "https://download.amd.com/developer/eula/aocc-compiler/${tarball}"
+    tar -xf "${tarball}"
+    # install.sh writes setenv_AOCC.sh into the cwd (not the extracted dir),
+    # so run it from inside install_dir and move the result alongside clang.
+    ( cd "${install_dir}" && ./install.sh )
+    mv setenv_AOCC.sh "${setenv}"
+    # run-stream.sh expects setenv_AOCC.sh directly in the work dir; keep a
+    # copy there too so its lookup (../setenv_AOCC.sh) keeps working.
+    cp "${setenv}" setenv_AOCC.sh
+  fi
+
+  # setenv_AOCC.sh appends to vars like $LIBRARY_PATH without defining them
+  # first, which trips `set -u`; seed them empty before sourcing.
+  : "${LIBRARY_PATH:=}" "${LD_LIBRARY_PATH:=}" "${C_INCLUDE_PATH:=}" "${CPLUS_INCLUDE_PATH:=}"
+  source "${setenv}"
 }
 
 # Fetch a clean copy of the upstream STREAM source.
@@ -45,6 +66,9 @@ build_stream() {
 }
 
 main() {
+  local wdir=${1:?usage: build-stream.sh <work-dir>}
+  mkdir -p "$wdir"
+  cd "$wdir"
   install_aocc
   download_stream
   build_stream

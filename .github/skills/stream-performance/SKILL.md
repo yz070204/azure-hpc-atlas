@@ -44,10 +44,12 @@ so rather than comparing to an HBv4 number.
 AOCC 4.0.0, 560M doubles/array, 100 iterations, **176 threads**, `GOMP_CPU_AFFINITY=0-175`,
 THP `always` (HBv4/HX; other families use their own thread/affinity recipe automatically).
 560M is the default because its bandwidth matches Azure's published sustained figures.
-Reuse a verified binary; build only if missing (see `scripts/build-stream.sh`). Put
-`stream` and `setenv_AOCC.sh` in `$WORK_ROOT`, pass the detected token, then run 3 trials:
+Reuse a verified binary; build only if missing. `build-stream.sh` takes `$WORK_ROOT` as
+its argument, installs AOCC and compiles `stream` there (never in the caller's cwd), and
+reuses an already-cached AOCC install in that dir on a rerun instead of re-downloading:
 
 ```bash
+bash "$SKILL_DIR/scripts/build-stream.sh" "$WORK_ROOT"   # only if stream isn't already built
 bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT" hbv4 3
 ```
 
