@@ -1,13 +1,14 @@
 ---
-name: hbv4-stream-performance
-description: Run STREAM optimally on a full-size Azure HBv4/HX VM (176-core EPYC 9V33X), and triage when measured bandwidth is lower than expected.
+name: stream-performance
+description: Run STREAM and triage memory-bandwidth performance on Azure HPC VMs. Currently validated on full-size HBv4/HX (176-core EPYC 9V33X); HBv2/HBv3 recipes have no validated comparison targets.
 user-invocable: false
 ---
 
-# STREAM on HBv4 / HX
+# STREAM performance
 
-Applies to the full-size SKU of the Azure HBv4 and HX families, plus HBv2/HBv3. STREAM
-measures memory bandwidth, so it runs on any full-size member of a family.
+Currently validated on full-size Azure HBv4 and HX VMs. HBv2/HBv3 recipes are
+also available, but do not yet have validated comparison targets. The skill name
+is SKU-neutral so coverage can grow; it does not imply validation on other SKUs.
 
 ## Detect the platform (do this first)
 Read the VM size from Azure IMDS, then map it to a platform token — don't guess the

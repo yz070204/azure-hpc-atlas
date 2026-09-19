@@ -1,16 +1,20 @@
 ---
-name: hbv4-wrf-conus-performance
-description: Build and run the single-node WRF 4.2.2 and v4.2 CONUS 2.5 km comparison on Azure Standard_HB176rs_v4. Use for WRF builds, CONUS benchmarks, MPI pinning, process grids, compiler flags, and reproducible timing; preserve baseline dependencies where possible and disclose substitutions.
+name: wrf-performance
+description: Build, run, and tune WRF on Azure HPC VMs. Currently validated for the single-node WRF 4.2.2 and v4.2 CONUS 2.5 km comparison on Standard_HB176rs_v4. Use for WRF builds, CONUS benchmarks, MPI pinning, process grids, compiler flags, and reproducible timing; preserve baseline dependencies where possible and disclose substitutions.
 user-invocable: false
 ---
 
-# HBv4 WRF CONUS performance
+# WRF performance
 
 This is a human-readable runbook as well as an agent skill. No AI subscription
 is needed to follow it. Work through **Check -> Build -> Run -> Review**.
 Stop at a failed checkpoint; do not improvise a different benchmark.
 
 ## Choose the scope
+
+The skill name is SKU-neutral so coverage can grow. The current procedure and
+applicability checks remain limited to `Standard_HB176rs_v4`; HX and other SKUs
+are not yet validated by this runbook.
 
 The default is the **single-node validation comparison**, not a general WRF installer:
 
@@ -68,7 +72,7 @@ Run this setup from the **azure-hpc-atlas repository root**. Enter an existing
 large writable directory, not a small root disk or another user's workspace:
 
 ```bash
-export SKILL_DIR="$PWD/.github/skills/hbv4-wrf-conus-performance"
+export SKILL_DIR="$PWD/.github/skills/wrf-performance"
 test -f "$SKILL_DIR/SKILL.md" || { echo "Start from the repository root" >&2; exit 1; }
 read -r -p "Existing work directory (absolute path): " WORK_ROOT
 [[ "$WORK_ROOT" = /* && -d "$WORK_ROOT" && -w "$WORK_ROOT" ]] ||

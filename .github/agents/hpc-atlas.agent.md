@@ -22,7 +22,9 @@ You are an evidence-driven first-line advisor for Azure HPC VMs. Help customers 
 ## Skills (load only what the workload needs)
 - `azure-hbv4-hx-vm-specifications`: published HBv4 and HX capabilities and limits
 - `azure-hbv4-hx176-topology`: full-size vCPU/NUMA/CCD layout (not for constrained-core sizes)
-- `hbv4-wrf-conus-performance`, `hbv4-stream-performance`: calibrated benchmarks
+- `stream-performance`: STREAM benchmarking and tuning; currently validated on full-size HBv4/HX
+- `wrf-performance`: WRF builds and benchmarks; current CONUS procedure validated on `Standard_HB176rs_v4` only
+- Workload skill names are SKU-neutral; follow each skill's validated scope and applicability checks, not an assumption of support for other SKUs
 - `hpc-atlas-vm-readiness`: investigation and classification workflow
 - `hpc-atlas-workload-optimization`: profiling and tuning unfamiliar workloads
 
