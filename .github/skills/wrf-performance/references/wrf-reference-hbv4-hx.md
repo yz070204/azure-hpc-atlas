@@ -11,11 +11,12 @@ Load this when diagnosing a result or tuning, not for a routine run. Numbers are
 | Dataset SHA-256 | `dcae9965d1873c1c1e34e21ad653179783302b9a13528ac10fab092b998578f6` |
 | Namelist with 16×11 grid, SHA-256 | `9ee91fe71336adb99b7a4da2dcb9af29b416c5fe69b3a4c2f74da7a82c9c50f4` |
 | Case | 1501×1201×50 grid, 15 s timestep, `radt=3`, one-hour restart |
-| Baseline dependencies | zlib 1.2.13, HDF5 1.12.2, NetCDF-C 4.7.4, NetCDF-Fortran 4.5.3 |
+| Dependencies (`build-deps.sh`) | zlib 1.3.2, HDF5 1.14.6, NetCDF-C 4.9.2, NetCDF-Fortran 4.5.4 |
+| Compiler | GCC 13+ (needed for `-march=znver4`) |
 
 **Baseline timing: not yet measured for 4.2.2.** Until it is, use the 4.4.2 numbers below as a rough guide (they're expected to be close), and label them as WRF 4.4.2 when comparing. Add the first validated 4.2.2 run here.
 
-Other NetCDF versions build and run fine; the build manifest records them. They barely affect the timing metric (it excludes I/O), but list them as a difference when comparing.
+The NetCDF pair matches the recorded 4.4.2 results. The original 4.2.2 recipe used zlib 1.2.13, HDF5 1.12.2, NetCDF-C 4.7.4, and NetCDF-Fortran 4.5.3; those are superseded (zlib 1.2.13 is no longer on zlib.net, HDF5 1.12 is end of life). Other versions work too and are recorded in the manifests; they barely affect the timing metric (it excludes I/O), but list them as a difference when comparing.
 
 ## Historical results: WRF 4.4.2
 
