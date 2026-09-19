@@ -1,236 +1,67 @@
 ---
 name: hpc-atlas-workload-optimization
-description: Profile and optimize unfamiliar CPU, memory, MPI, OpenMP, storage, and mixed HPC workloads on Azure without requiring a hard-coded application recipe. Use when asked to make an HPC application or benchmark faster, choose ranks or threads, tune affinity or NUMA placement, improve scaling, compare builds, or investigate a performance bottleneck.
+description: Find and validate speedups for HPC workloads that have no dedicated workload skill. Use for making an application faster, choosing ranks/threads, pinning and NUMA placement, MPI transport, compiler flags, or I/O bottlenecks.
 user-invocable: false
 ---
 
 # HPC Atlas workload optimization
 
-Use this skill to optimize workloads that do not yet have a dedicated,
-validated application skill. Treat every proposed optimization as a hypothesis
-until a controlled measurement supports it.
+Find the biggest speedup with the fewest runs. Follow the agent rules and report format. To diagnose a specific slow run (what actually ran, contention, limits), use Application performance in `hpc-atlas-vm-readiness` first. Workload skills with calibrated recipes (e.g. WRF) take precedence. Every change is a hypothesis until measured.
 
-Dedicated SKU and workload skills take precedence for facts within their
-validated scope. This generic method fills the gaps; it must not invent an
-expected performance threshold.
+## 1. Set up
+- **Metric and correctness:** one primary metric (time per iteration, wall time) and one correctness check (residuals, output diff, validation case). Never change inputs or numerics to go faster.
+- **Short case:** a few iterations/timesteps of the real input, long enough to get past startup (about a minute of steady state). Screen candidates with it; confirm only finalists on the full run.
+- **Baseline:** exact command, environment, binary, input, ranks × threads, and actual placement (`--report-bindings` for HPC-X/Open MPI, `I_MPI_DEBUG=4` for Intel MPI). Discard a warm-up run.
+- **App knowledge:** look up the application's own parallel settings once (decomposition, threading, solver options) before experimenting, instead of guessing.
+- Get approval and a run budget before experiments.
 
-## Inputs to discover
-
-Collect the smallest useful workload description:
-
-| Area | Information |
-|---|---|
-| Goal | Throughput, latency, time to solution, scaling efficiency, cost, or another metric |
-| Correctness | Numerical tolerance, determinism, validation tests, and required outputs |
-| Workload | Application, version/commit, input dataset, phases, and representative run length |
-| Build | Compiler, flags, target ISA, linked math/MPI/I/O libraries, and executable identity |
-| Parallel model | Serial, processes, MPI, threads, OpenMP, hybrid, or task runtime |
-| Launch | Exact command, ranks, threads, process grid, affinity, and memory policy |
-| Platform | Azure SKU, CPU/NUMA topology, memory, storage path, and network fabric |
-| Baseline | Raw measurements, repetition count, variability, and comparison basis |
-| Constraints | Licensing, memory capacity, runtime, node count, budget, and allowed changes |
-
-Use information supplied by the user, but label its scope and provenance.
-Separate documented facts, observed measurements, and hypotheses.
-
-## Optimization workflow
-
-### 1. Define success
-
-Choose one primary performance metric and one correctness check. Examples
-include seconds per iteration, total wall time, jobs per hour, parallel
-efficiency, or cost per completed simulation.
-
-Do not optimize a proxy unless its relationship to the user's objective is
-clear. Do not exclude initialization or I/O without stating that the metric
-does so.
-
-### 2. Create a reproducible baseline
-
-Record:
-
-- Exact command and environment
-- Executable checksum or equivalent build identity
-- Input identity
-- Rank/thread count and placement
-- Node count and VM size
-- Storage location
-- Relevant software versions
-- Individual run results, not only the average
-
-Run on an otherwise idle node when possible. Warm-up behavior and cache state
-must be consistent between comparisons.
-
-When investigating a user's slow run, reconstruct its actual parameters from
-scoped launch scripts, job records, logs, and permitted runtime evidence
-before proposing replacements. Preserve provenance and distinguish requested
-settings from effective settings. Do not assume the current shell or an
-edited script represents the historical run. Avoid unrelated users' data,
-whole-environment dumps, and secrets.
-
-Use the low-application-performance procedure in `hpc-atlas-vm-readiness`
-to separate configuration, inherited session state, resource limits, and
-competing work. A fresh shell is not an idle VM and may retain affinity or
-cgroup limits. Use an explicit launch environment and an approved idle or
-exclusive interval rather than killing jobs, disabling services, or rebooting.
-Obtain approval and a bounded run budget before workload experiments.
-
-### 3. Characterize before tuning
-
-Determine the dominant behavior using the lightest available evidence:
-
-- CPU utilization and frequency behavior
-- Instructions, vectorization, and compute intensity where tooling permits
-- Memory bandwidth, locality, allocation, and NUMA traffic
-- Thread or rank imbalance and synchronization
-- MPI message size, communication time, and scaling
-- InfiniBand versus Ethernet path
-- Storage throughput, metadata activity, and I/O wait
-- Application phase timing
-
-If profiling tools are unavailable, use controlled scaling and placement
-experiments instead of guessing.
-
-### 4. Form a ranked hypothesis
-
-State:
-
-```text
-Hypothesis:
-Evidence:
-One-factor change:
-Expected signal:
-Correctness check:
-Rollback:
-```
-
-Prefer changes that are reversible, low risk, and capable of disproving the
-hypothesis.
-
-### 5. Tune one layer at a time
-
-Consider these layers only when evidence points to them:
-
-#### Work decomposition
-
-- Rank count, thread count, and hybrid MPI/OpenMP balance
-- Process grid or domain decomposition
-- Load balance and communication surface area
-- Problem size per rank and memory capacity
-
-#### CPU and memory placement
-
-- Compact versus distributed placement
-- NUMA-local memory and first-touch initialization
-- Rank ordering and thread affinity
-- Avoiding accidental oversubscription
-- CCD/cache sharing when a validated topology skill applies
-
-#### Build and libraries
-
-- CPU architecture target and vectorization
-- Optimized MPI, math, FFT, I/O, or communication libraries
-- Linkage consistency and accidental fallback libraries
-- Profile-guided or link-time optimization when reproducible
-
-Do not enable relaxed floating-point options such as `-Ofast` without explicit
-disclosure and output validation.
-
-#### Communication
-
-- Correct network fabric and RDMA path
-- MPI transport selection and binding
-- Collective behavior, message aggregation, and process placement
-- Strong- and weak-scaling limits
-
-#### Storage and I/O
-
-- Persistent versus local temporary storage
-- Staging, checkpoint, restart, and output phases
-- File-per-rank versus collective I/O
-- Striping and concurrency
-
-Never format or overwrite a disk without explicit user approval. Local NVMe
-performance must not be presented as durable storage.
-
-#### Application configuration
-
-- Algorithmic options, tolerances, output frequency, checkpoint interval, and
-  diagnostics
-- Changes that reduce work versus changes that make the same work faster
-
-Preserve the user's scientific and operational requirements.
-
-### 6. Measure and decide
-
-Change one primary factor per experiment. Keep all other conditions fixed.
-Repeat finalists when run-to-run variance could change the conclusion.
-
-Measure node activity alongside runs when contention is suspected. Separate
-configuration changes, launch-environment changes, and busy/idle conditions;
-changing them together cannot establish which caused an improvement. Preserve
-the original baseline and explain why it underperformed when the evidence
-supports attribution. If only a candidate run succeeds, distinguish that
-success from an unresolved original failure.
-
-Use:
-
-```text
-improvement_percent = 100 * (baseline_time - candidate_time) / baseline_time
-```
-
-for lower-is-better elapsed-time metrics. State the formula for other metrics.
-Do not claim a win smaller than measurement variability.
-
-### 7. Promote validated knowledge
-
-When an optimization is repeatable:
-
-- Record the exact scope: SKU, image, workload version, input, and node count.
-- Record the baseline and candidate commands.
-- Preserve correctness evidence.
-- Mark the result as an observation, recommendation, or requirement.
-- Add a dedicated workload skill only when the procedure is stable enough to
-  reuse.
-
-A result from one application, input, or image is not a universal HPC rule.
-
-## Using user-supplied expertise
-
-Classify new information before incorporating it:
-
-| Kind | Examples | Treatment |
+## 2. Classify the bottleneck (cheapest probe first)
+| Probe | Signal | Likely bound |
 |---|---|---|
-| Platform invariant | Core count, NUMA topology, device capability | Verify scope and source; place in a SKU skill |
-| Workload requirement | Valid process grids, required library, correctness tolerance | Place in a workload skill |
-| Measured baseline | STREAM bandwidth, timestep rate, scaling curve | Preserve environment and run provenance |
-| Diagnostic rule | Meaning of a device or driver state | Record prerequisites and counterexamples |
-| Candidate tuning | Rank count, compiler flag, affinity | Keep as a hypothesis until controlled validation |
+| The app's own timing breakdown | One phase dominates | Start there |
+| Short case at ¼, ½, and all cores, spread evenly across NUMA nodes | Stops improving well before all cores | Memory bandwidth |
+| Same | Near-linear | Compute |
+| MPI time share (app timers or an MPI profiler) grows with node count | Communication share rising | Communication |
+| `vmstat 1` high `wa`, read/write phases dominate | I/O wait | I/O |
+| Uneven per-rank time or CPU use | Some ranks idle | Load imbalance |
 
-If supplied information conflicts with live evidence, report the conflict and
-investigate it. Do not silently prefer either source.
+Rank counts must be valid for the app's decomposition (e.g. the domain split must match the rank count).
 
-## Output
+## 3. Try changes in payoff order
+One change per experiment. Skip layers the bottleneck doesn't point to.
 
-Report experiments in one table:
+1. **Placement (most common large win).** Pin every rank, spread ranks evenly across NUMA nodes and L3 caches (CCDs), never oversubscribe. Verify actual placement, not just the requested flags (`ps -eLo pid,psr,comm`). Hybrid MPI+OpenMP: keep each rank's threads inside one CCD (`OMP_PLACES=cores`, `OMP_PROC_BIND=close`), threads per rank ≤ cores per CCD.
+   - HPC-X/Open MPI: `--map-by ppr:<n>:numa --bind-to core` (hybrid: `--map-by ppr:<n>:numa:pe=<threads>`). Intel MPI: `I_MPI_PIN_PROCESSOR_LIST` or `I_MPI_PIN_DOMAIN`. MPICH: `-bind-to core`.
+2. **Rank count (memory-bound codes).** Fewer ranks per VM gives each rank more L3 and memory bandwidth and can be faster. Try counts that keep ranks per CCD equal (the topology skill lists valid counts, e.g. 144 on HBv4). For per-core-licensed apps, constrained-core VM sizes do the same with fewer licenses. Compare cost per run, not just time.
+3. **Working set vs L3.** Large-cache CPUs (e.g. HBv4/HX with 3D V-Cache) gain most when the per-VM working set fits in L3; small cases gain less. For multi-node runs, scaling can beat expectations once data per VM fits in cache, so test more nodes before assuming they won't help.
+4. **MPI transport.** Confirm inter-node traffic uses InfiniBand, not TCP (check UCX/HPC-X output and `UCX_NET_DEVICES`); TCP fallback is a large slowdown. Intra-node: on AMD, HPC-X with xpmem has shown ~10% loss from page faults. Test with the xpmem module unloaded (system change, ask first); UCX falls back to another shared-memory transport automatically.
+5. **Build.** Build on the target SKU; a binary built for a newer CPU can crash with "illegal instruction" on an older one. Use the CPU vendor's optimized math libraries (e.g. AOCL on AMD) where the app uses BLAS/FFT, and check `ldd` for accidental reference libraries. Flags already validated in a workload skill (e.g. the STREAM skill) take precedence.
 
-| Experiment | Change | Placement/build | Result | Variance | Correctness | Decision |
-|---|---|---|---:|---:|---|---|
+   | Flag | Purpose |
+   |---|---|
+   | `-O3` | High optimization; safe default |
+   | `-march=native` | Target the CPU you're building on |
+   | `-march=znver2` / `znver3` / `znver4` | Target a specific SKU: HBv2 (Zen 2) / HBv3 (Zen 3) / HBv4, HX (Zen 4, adds AVX-512). `znver4` needs GCC 13+ or AOCC 4+ |
+   | `-fopenmp` | Enable OpenMP threading |
+   | `-Ofast` / `-ffast-math` | Faster floating point, but can change numerical results; only with output validation against the baseline |
 
-Then provide:
+6. **I/O.** Put scratch and checkpoints on local NVMe (fast but not durable; copy results out). Reducing output or checkpoint frequency needs user agreement. Shared storage choice (Azure Files, NetApp Files, Managed Lustre) is a design decision: recommend, don't change.
+7. **System settings (ask first).** Transparent huge pages can help memory-bound codes; test as a one-factor experiment and restore afterwards.
+8. **Application settings.** Options that do the same work faster (solver, decomposition method). Anything that reduces work (tolerances, output) needs user sign-off.
 
-```text
-Bottleneck assessment:
-Best validated configuration:
-Original-run gap and supporting evidence:
-Improvement over baseline:
-Confidence and scope:
-Remaining uncertainty:
-Next highest-value experiment:
-```
+## 4. Measure and decide
+- Screen with 1–2 runs of the short case per candidate. Confirm the best 1–2 against the baseline with ≥5 runs; report the median.
+- Improvement = 100 × (baseline − candidate) / baseline for time metrics. A gain within run-to-run variance is not a win.
+- Stop when the next change's likely gain is below variance or the budget is used.
 
-If no controlled measurement was performed, call recommendations
-`hypotheses`, not optimizations.
-Use "best validated configuration" only within the tested workload, input,
-SKU, scale, and candidate set; do not claim a universal optimum. Include an
-exact reproducible launch command, relevant environment, and load conditions.
+## SKU notes
+- **HBv4/HX:** 176 cores, no SMT, 4 NUMA nodes, 3D V-Cache L3 per CCD. HX has the same CPU and topology with more memory, so the same placement rules apply. Use `azure-hbv4-hx176-topology` for exact CCD/NUMA mapping and valid rank counts; pinning is reliable because the VM exposes the physical topology.
+- **Other SKUs:** same method. Take topology and valid rank counts from that SKU's skill; never reuse HBv4 numbers.
+
+## Report
+Use the agent report format, plus:
+
+| Experiment | Change | Ranks × threads / placement | Metric (median, n) | Variance | Correct? | Keep? |
+|---|---|---|---|---|---|---|
+
+Then give the bottleneck, the best validated launch command with its environment and scope (SKU, input, scale), improvement over baseline, and the next most promising experiment. Without measured runs, call recommendations hypotheses. If a result is repeatable, suggest capturing it in a workload skill.
