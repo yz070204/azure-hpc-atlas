@@ -33,7 +33,7 @@ The benchmark downloads WRF source and a ~14 GiB dataset, builds WRF, and runs a
 |---|---|
 | WRF | 4.2.2, commit `fb60d61cc44e2a2e8b8311f0b79185724010d510` |
 | Input | Official v4.2 CONUS 2.5 km restart case (`radt=3`), one simulated hour |
-| Toolchain | GNU compilers, Open MPI/HPC-X, classic NetCDF |
+| Toolchain | GCC 13+, Open MPI/HPC-X, NetCDF-C 4.9.2 / NetCDF-Fortran 4.5.4 |
 | Flags | `-O3 -march=znver4 -Ofast -ftree-vectorize -funroll-loops` |
 | Launch | 176 ranks × 1 thread, `--map-by core --bind-to core`, grid 16×11 |
 | Metric | Mean of the last 149 rank-0 `Timing for main` records (s/step) |
@@ -41,13 +41,19 @@ The benchmark downloads WRF source and a ~14 GiB dataset, builds WRF, and runs a
 `-Ofast` relaxes floating-point rules. The run compares key output fields against the dataset's reference output and reports `comparison_status=REVIEW_REQUIRED`: no acceptance tolerance is defined, so completion is not scientific validation.
 
 ## Optimal run
-Select the GNU + HPC-X/Open MPI + NetCDF stack first (e.g. `module load`); the scripts never install or download anything. Use a large local disk for `WORK_ROOT`.
+Select GCC 13+ and HPC-X/Open MPI first (e.g. `module load mpi/hpcx`). If `nf-config` isn't available, build NetCDF into the work directory with `build-deps.sh` (nothing is installed system-wide). Use a large local disk for `WORK_ROOT`.
 
 ```bash
 SKILL_DIR=<repo>/.github/skills/wrf-performance
 WRF_SRC=$WORK_ROOT/WRF-v4.2.2
 ARCHIVE=$WORK_ROOT/v42_bench_conus2.5km.tar.gz
 RUN_DIR=$WORK_ROOT/conus-v42-run-01          # must not exist yet
+
+# NetCDF, only if nf-config is missing (zlib, HDF5, NetCDF-C/Fortran into one prefix).
+if ! command -v nf-config >/dev/null; then
+  bash "$SKILL_DIR/scripts/build-deps.sh" "$WORK_ROOT/deps"
+  export PATH=$WORK_ROOT/deps/bin:$PATH LD_LIBRARY_PATH=$WORK_ROOT/deps/lib:$LD_LIBRARY_PATH
+fi
 
 # Source and dataset, only if missing.
 [[ -d $WRF_SRC ]] || git clone --branch v4.2.2 --depth 1 --recurse-submodules https://github.com/wrf-model/WRF.git "$WRF_SRC"
@@ -60,6 +66,7 @@ bash "$SKILL_DIR/scripts/build-wrf.sh" "$WRF_SRC"
 bash "$SKILL_DIR/scripts/run-conus.sh" "$WRF_SRC" "$ARCHIVE" "$RUN_DIR"
 ```
 
+- `build-deps.sh` downloads and builds zlib, HDF5, NetCDF-C, and NetCDF-Fortran (pinned versions) into one prefix and writes `deps-manifest.txt`.
 - `build-wrf.sh` configures GNU dmpar with the pinned flags, compiles `em_real` (`NPROCS` jobs, default 8), and writes `build-manifest.txt` (commit, flags, tool and NetCDF versions, `wrf.exe` hash, linkage). It refuses an already-configured tree; use a fresh checkout to rebuild.
 - `run-conus.sh` checks the commit, flags, and dataset checksum; prepares a new run directory with the 16×11 grid; verifies ranks land on CPUs 0-175 in order; runs WRF; then calls `summarize.sh`.
 - `summarize.sh <run-dir>` checks completion and input integrity, computes the timing metric, and runs the numerical comparison. Rerun it alone if WRF finished but reporting failed.
