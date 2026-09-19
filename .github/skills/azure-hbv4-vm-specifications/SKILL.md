@@ -1,128 +1,92 @@
 ---
-name: azure-hbv4-vm-specifications
-description: Answer factual questions about Azure HBv4 VM sizes, CPU, memory, cache, local and remote storage, networking, InfiniBand, supported features, operating systems, and constrained-core variants. Use for HBv4 capacity planning and basic hardware or platform specifications; use the separate HBv4/HX topology skill for exact vCPU-to-Pcore and CCD mappings.
+name: azure-hbv4-hx-vm-specifications
+description: Answer factual questions about Azure HBv4 and HX VM sizes: CPU, frequency, memory, cache, local and remote storage, networking, InfiniBand, supported features, operating systems, and constrained-core variants. Use for HBv4/HX capacity planning, HBv4 vs HX comparisons, and basic hardware or platform specifications; use the separate HBv4/HX topology skill for exact vCPU-to-Pcore and CCD mappings.
 user-invocable: false
 ---
 
-# Azure HBv4 VM specifications
+# Azure HBv4 and HX VM specifications
 
-Use this skill for public Azure HBv4-series specifications and basic capacity
-planning. For exact full-size vCPU, physical-core, NUMA, and CCD placement, use
-the sibling `azure-hbv4-hx176-topology` skill.
+Public specifications and capacity planning for HBv4 and HX. For exact full-size vCPU, physical-core, NUMA, and CCD placement, use `azure-hbv4-hx176-topology`.
 
-## Quick reference
+HBv4 and HX share the same host hardware, CPU, topology, cache, storage, and networking. **The main difference is memory: HBv4 has 768 GB, HX has 1,408 GB.** HX is aimed at memory-capacity-bound workloads (e.g. EDA).
 
-| Component | HBv4 specification |
+## Shared specifications
+
+| Component | HBv4 and HX |
 |---|---|
-| CPU | AMD EPYC 9V33X (Genoa-X), x86-64, AMD 3D V-Cache |
-| Host CPUs | Two 96-core processors; 192 physical cores before Azure reserves |
+| CPU | AMD EPYC 9V33X (Genoa-X, Zen 4), x86-64, AMD 3D V-Cache |
+| Host CPUs | Two 96-core processors; 192 physical cores before Azure reserves 16 |
 | VM vCPUs | 176, 144, 96, 48, or 24 depending on size |
-| SMT | Disabled; one exposed vCPU corresponds to one physical core |
-| Frequency | 2.55 GHz base; up to 3.7 GHz single-core and all-core peak |
-| Memory | 768 GB for every HBv4 size |
+| SMT | Disabled; one vCPU = one physical core |
+| Frequency | 2.55 GHz base; published single-core and all-core peak 3.7 GHz (see note) |
 | Memory bandwidth | 780 GB/s |
-| L3 cache | 2,304 MB, with up to 5.7 TB/s cache bandwidth |
+| L3 cache | 2,304 MB, up to 5.7 TB/s cache bandwidth |
 | Effective memory speed | Microsoft reports an average of 1.2 TB/s for many workloads |
-| Local temp disk | One 480 GiB SSD device |
+| Local temp disk | One 480 GiB SSD device (page file) |
 | Local NVMe | Two 1,800 GiB unformatted block NVMe devices |
 | Remote disks | Up to 32 Standard or Premium managed disks |
 | Azure network | Up to 80,000 Mb/s aggregated expected bandwidth; up to eight vNICs |
-| InfiniBand | One 400 Gb/s NVIDIA ConnectX-7 NDR adapter with SR-IOV/RDMA |
-| Accelerators | No GPU, FPGA, or other accelerator |
+| InfiniBand | One 400 Gb/s NVIDIA ConnectX-7 NDR adapter, SR-IOV/RDMA |
+| Accelerators | None |
 
-Do not combine the two 1,800 GiB NVMe devices into a single 3,600 GiB device
-unless discussing a user-created striped array.
+**Frequency note:** the size tables list 3.7 GHz as both single-core and all-core peak. That is a published maximum, not an expected all-core value: under a full all-core load, measured frequency can run slightly below the 2.55 GHz base (confirmed by AMD). Only a lightly loaded core should be expected to approach 3.7 GHz.
+
+Don't combine the two 1,800 GiB NVMe devices into one 3,600 GiB device unless discussing a user-created striped array.
+
+## HBv4 vs HX
+
+| | HBv4 | HX |
+|---|---|---|
+| Memory (every size) | 768 GB | 1,408 GB |
+| Size names | `Standard_HB176rs_v4`, `Standard_HB176-<n>rs_v4` | `Standard_HX176rs`, `Standard_HX176-<n>rs` (no `_v4`) |
+| Everything else | Same | Same |
 
 ## Available sizes
 
-All constrained-core variants retain the same 768 GB memory, memory bandwidth,
-cache, InfiniBand, Azure Ethernet, and local SSD resources. Only the exposed
-core count changes.
+Constrained-core variants keep the same memory, memory bandwidth, cache, InfiniBand, Azure Ethernet, and local SSD; only the exposed core count changes. Every size has 4 vNUMA nodes.
 
-| Azure size | vCPUs | vNUMA nodes | Cores per vNUMA | Memory | Approx. GB/vCPU |
-|---|---:|---:|---:|---:|---:|
-| `Standard_HB176rs_v4` | 176 | 4 | 44 | 768 GB | 4.36 |
-| `Standard_HB176-144rs_v4` | 144 | 4 | 36 | 768 GB | 5.33 |
-| `Standard_HB176-96rs_v4` | 96 | 4 | 24 | 768 GB | 8.00 |
-| `Standard_HB176-48rs_v4` | 48 | 4 | 12 | 768 GB | 16.00 |
-| `Standard_HB176-24rs_v4` | 24 | 4 | 6 | 768 GB | 32.00 |
+| vCPUs | HBv4 size | HX size | Cores per vNUMA | GB/vCPU HBv4 | GB/vCPU HX |
+|---:|---|---|---:|---:|---:|
+| 176 | `Standard_HB176rs_v4` | `Standard_HX176rs` | 44 | 4.36 | 8.00 |
+| 144 | `Standard_HB176-144rs_v4` | `Standard_HX176-144rs` | 36 | 5.33 | 9.78 |
+| 96 | `Standard_HB176-96rs_v4` | `Standard_HX176-96rs` | 24 | 8.00 | 14.67 |
+| 48 | `Standard_HB176-48rs_v4` | `Standard_HX176-48rs` | 12 | 16.00 | 29.33 |
+| 24 | `Standard_HB176-24rs_v4` | `Standard_HX176-24rs` | 6 | 32.00 | 58.67 |
 
-The GB/vCPU values are arithmetic ratios for comparison, not separately
-published Azure limits.
+GB/vCPU values are arithmetic ratios for comparison, not published limits.
 
 ## CPU and NUMA architecture
-
-- Each HBv4 host contains two 96-core AMD EPYC 9V33X processors.
-- The host has 192 physical Zen 4 cores and 24 CCDs, with eight cores and
-  96 MB of L3 cache per CCD.
-- Azure reserves 16 physical cores for the hypervisor, leaving up to 176 cores
-  for the full-size VM.
-- BIOS topology uses NPS=2, so the host and VM expose four NUMA domains, two
-  per socket.
-- A group of six consecutive CCDs forms one NUMA domain.
-- `L3 as NUMA` is disabled and C-states are enabled.
-- The VM's virtual NUMA topology maps to the underlying physical NUMA
-  topology rather than presenting an unrelated abstraction.
-
-Do not apply the exact 176-vCPU affinity map to a constrained-core size. Use
-the public topology characteristics here and inspect that VM's OS topology.
+- Two 96-core EPYC 9V33X per host: 192 Zen 4 cores in 24 CCDs, 8 cores and 96 MB L3 per CCD.
+- Azure reserves 16 physical cores for the hypervisor, symmetrically across both sockets, leaving up to 176 for the VM.
+- BIOS: NPS=2, `L3 as NUMA` disabled, C-states enabled. The host and VM expose four NUMA domains (two per socket); six consecutive CCDs form one NUMA domain, each with six DRAM channels.
+- The VM's virtual NUMA topology maps to the physical NUMA topology.
+- Don't apply the exact 176-vCPU affinity map to constrained-core sizes; use these characteristics and inspect that VM's OS topology.
 
 ## Local storage
+- One 480 GiB SSD, preformatted as the temp/page-file disk.
+- Two 1,800 GiB unformatted block NVMe devices that bypass the hypervisor (NVMeDirect).
 
-HBv4 provides three physically local SSD devices:
+Striped across both NVMe devices, Microsoft reports up to 12 GB/s sequential read, 7 GB/s sequential write, 186,000 read IOPS, and 201,000 write IOPS (deep queue depths).
 
-1. One 480 GiB SSD device, preformatted for use as the VM's temporary/page-file
-   disk.
-2. Two 1,800 GiB unformatted block NVMe devices that bypass the hypervisor.
-
-When the two NVMe devices are configured as a striped array, Microsoft reports
-up to:
-
-| Metric | Reported maximum |
-|---|---:|
-| Sequential read bandwidth | 12 GB/s |
-| Sequential write bandwidth | 7 GB/s |
-| Read IOPS | 186,000 |
-| Write IOPS | 201,000 |
-
-These are local temporary devices, not durable managed disks. Do not recommend
-them as the only copy of persistent data. Capacity in the size table is GiB
-(`1024^3` bytes), while throughput MB/s uses decimal units.
+These are temporary devices, not durable storage; never recommend them as the only copy of data. Capacity is in GiB (`1024^3` bytes); throughput MB/s is decimal.
 
 ## Remote storage
-
-- Up to 32 remote data disks are supported on every HBv4 size.
-- Standard and Premium Azure managed disks are supported.
-- Premium Storage caching is supported.
-- Other documented storage options include Azure NetApp Files, Azure Files,
-  and Azure Managed Lustre.
-- The HBv4 size table does not publish a single VM-level remote-disk IOPS or
-  throughput number. Do not invent one; consider the selected disk type,
-  count, caching mode, and storage architecture.
+- Up to 32 Standard or Premium managed data disks on every size; Premium Storage caching supported.
+- Other documented options: Azure NetApp Files, Azure Files, Azure Managed Lustre.
+- No single VM-level remote-disk IOPS or throughput figure is published. Don't invent one; it depends on disk type, count, caching mode, and storage architecture.
 
 ## Networking and RDMA
 
-Keep Azure Ethernet and InfiniBand figures separate:
-
 | Fabric | Specification | Typical purpose |
 |---|---:|---|
-| Azure Ethernet | Up to 80 Gb/s expected aggregated bandwidth across up to eight vNICs | IP and Azure service traffic |
-| NDR InfiniBand | Up to 400 Gb/s through one ConnectX-7 adapter | MPI and RDMA traffic |
+| Azure Ethernet | Up to 80 Gb/s aggregated across up to eight vNICs | IP and Azure service traffic |
+| NDR InfiniBand | Up to 400 Gb/s, one ConnectX-7 adapter | MPI and RDMA traffic |
 
-The overview's hardware summary also describes the Azure network hardware as
-100 Gb/s with 80 Gb/s Azure Accelerated Networking. Use 80 Gb/s as the
-published VM-size expected network-bandwidth limit.
+Use 80 Gb/s from the size tables as the Ethernet limit. The overview pages describe the network hardware inconsistently (HBv4: 100 Gb/s with 80 Gb/s Accelerated Networking; HX: 80 Gb/s with 40 Gb/s usable).
 
-InfiniBand details:
+InfiniBand: SR-IOV passthrough (bypasses the hypervisor; standard Mellanox OFED drivers), Adaptive Routing, DCT plus RC and UD transports, hardware offload of MPI collectives, non-blocking fat-tree fabric. Bandwidth figures are upper limits, not guarantees.
 
-- NVIDIA ConnectX-7 NDR adapter
-- SR-IOV passthrough, allowing traffic to bypass the hypervisor
-- Adaptive Routing
-- Dynamically Connected Transport (DCT), plus RC and UD transports
-- Hardware offload for MPI collectives
-- Non-blocking fat-tree fabric for RDMA workloads
-
-Maximum bandwidth values are upper limits, not performance guarantees.
+NDR requirements from the HX overview: UCX 1.13 or later (older UCX fails with `Invalid active_speed`), and MOFED 5.6-1.0.3.3 or later (older MOFED can make `ibstat` report a low speed such as SDR).
 
 ## Platform and software support
 
@@ -132,53 +96,33 @@ Maximum bandwidth values are upper limits, not performance guarantees.
 | Generation 1 VM | Not supported |
 | Accelerated Networking | Supported |
 | Ephemeral OS disk | Supported |
+| Premium Storage and caching | Supported |
 | Live migration | Not supported |
 | Memory-preserving updates | Not supported |
 | Nested virtualization | Not supported |
-| Premium Storage and caching | Supported |
 
-Documented MPI implementations include HPC-X, Open MPI, MVAPICH2, and MPICH.
-Additional frameworks include UCX, libfabric, and PGAS. Supported
-orchestrators include Azure CycleCloud, Azure Batch, and Azure Kubernetes
-Service.
+- MPI: HPC-X, Open MPI, MVAPICH2, MPICH, and Intel MPI (the HX overview lists minimum versions: HPC-X 2.13, Intel MPI 2021.7.0, Open MPI 4.1.3, MVAPICH2 2.3.7, MPICH 4.1). Frameworks: UCX, libfabric, PGAS.
+- Orchestrators: Azure CycleCloud, Azure Batch, AKS.
+- Max MPI job size (HX overview): 52,800 cores, i.e. 300 VMs in one scale set with `singlePlacementGroup=true`.
+- Validated OS baselines (HBv4 page): RHEL 8.6+, AlmaLinux 8.10+, Ubuntu 22.04 LTS+, SLES 15 SP7+, Windows Server 2022+. Recommended for performance: AlmaLinux HPC 9.7, Ubuntu HPC 24.04, Windows Server 2025. The HX overview still lists older baselines (AlmaLinux 8.6/8.7, Ubuntu 20.04+); treat the newer HBv4 list as current for both and verify before prescribing an image.
+- Windows: Windows Server 2022 is required for the 144- and 176-core sizes.
 
-Microsoft's published validated OS baselines are:
-
-- RHEL 8.6 or later
-- AlmaLinux 8.10 or later
-- Ubuntu 22.04 LTS or later
-- SUSE Linux Enterprise Server 15 SP7 or later
-- Windows Server 2022 or later
-
-The currently documented performance recommendations are AlmaLinux HPC 9.7,
-Ubuntu HPC 24.04, and Windows Server 2025. Treat version recommendations as
-time-sensitive and verify the current public documentation before prescribing
-an image for a new deployment.
+## Known documented issue
+The HX overview notes a core mapping issue on `Standard_HX176rs`. If a full-size HX VM's topology doesn't match the topology skill's signature, report it as a discrepancy (and mention this note); don't assume the reference is wrong.
 
 ## Answering guardrails
-
-- State the exact Azure size when discussing core count.
-- Distinguish GB of RAM from GiB of local storage.
-- Distinguish local temporary SSD/NVMe from durable remote storage.
+- State the exact Azure size when discussing core count, and say whether it's HBv4 or HX.
+- Distinguish GB of RAM from GiB of local storage, and local temporary SSD/NVMe from durable remote storage.
 - Distinguish 80 Gb/s Azure Ethernet from 400 Gb/s InfiniBand.
-- Do not interpret a constrained-core size as having less memory, cache,
-  memory bandwidth, networking, or local disk.
-- Present bandwidth and IOPS as documented maxima, not guarantees.
-- Do not transfer these specifications to HX-series VMs; consult HX public
-  documentation separately.
-- For prices, regional availability, quota, or newly supported OS images,
-  consult current Azure documentation because those values change.
+- Don't describe a constrained-core size as having less memory, cache, bandwidth, networking, or local disk.
+- Present bandwidth, IOPS, and frequency peaks as documented maxima, not guarantees.
+- For prices, regional availability, quota, or newly supported OS images, check current Azure documentation.
 
 ## Public sources
+Checked 2026-09-09 (HBv4) and 2026-09-19 (HX):
+- [HBv4 size series](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hbv4-series) (page date 2025-11-24)
+- [HBv4-series overview](https://learn.microsoft.com/en-us/azure/virtual-machines/hbv4-series-overview) (page date 2026-05-05)
+- [HX size series](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hx-series) (page date 2025-11-24)
+- [HX-series overview](https://learn.microsoft.com/en-us/azure/virtual-machines/hx-series-overview) (page date 2026-02-10)
 
-Checked on 2026-09-09:
-
-- [HBv4 size series](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/hbv4-series)
-  - Page date: 2025-11-24
-  - Microsoft Learn update observed: 2026-04-02
-- [HBv4-series VM overview, architecture, topology](https://learn.microsoft.com/en-us/azure/virtual-machines/hbv4-series-overview)
-  - Page date: 2026-05-05
-  - Microsoft Learn update observed: 2026-06-24
-
-When current facts conflict with this skill, prefer the latest Microsoft Learn
-documentation and identify the changed specification.
+When current documentation conflicts with this skill, prefer the latest Microsoft Learn page and name the changed specification.
