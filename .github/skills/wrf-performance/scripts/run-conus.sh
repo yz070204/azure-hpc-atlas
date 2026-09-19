@@ -53,6 +53,25 @@ check_inputs() {
 }
 
 #######################################
+# Stops early if the run directory's filesystem can't hold the extracted
+# case plus WRF's new output (about one more wrfout) with a 10% margin.
+# Reads the archive listing once, which takes a minute or two.
+# Arguments:
+#   Archive path, run dir.
+#######################################
+check_space() {
+  local archive="$1" run="$2" need avail
+  echo "Checking free space for ${run}..."
+  need="$(tar -tzvf "${archive}" | awk '
+    {total += $3}
+    $NF ~ /wrfout_/ {out += $3}
+    END {printf "%.0f", (total + out) * 1.1}')"
+  mkdir -p "$(dirname "${run}")"
+  avail="$(df -B1 --output=avail "$(dirname "${run}")" | tail -1)"
+  (( avail >= need )) || die "need $((need >> 30)) GiB free at $(dirname "${run}"), have $((avail >> 30)) GiB; choose a larger disk"
+}
+
+#######################################
 # Extracts the case, adds the 16x11 grid, links the WRF runtime files, and
 # records input hashes and provenance. Runs inside the new run directory.
 # Arguments:
@@ -109,6 +128,7 @@ main() {
   run="$(realpath -m "${3:?missing new run directory}")"
 
   check_inputs "${src}" "${archive}" "${run}"
+  check_space "${archive}" "${run}"
   mkdir -p "${run}"
   cd "${run}"
   prepare_run "${src}" "${archive}"
