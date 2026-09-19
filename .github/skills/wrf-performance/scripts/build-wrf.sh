@@ -14,10 +14,10 @@ set -euo pipefail
 # different experiment and run-conus.sh will refuse it.
 readonly FCFLAGS="-O3 -march=znver4 -Ofast -ftree-vectorize -funroll-loops"
 
-# NetCDF versions of the original comparison stack. Other versions are
-# allowed but recorded as a difference.
-readonly BASELINE_NETCDF_C="4.7.4"
-readonly BASELINE_NETCDF_F="4.5.3"
+# NetCDF versions of the recorded HBv4 results (and of build-deps.sh).
+# Other versions are allowed but recorded as a difference.
+readonly BASELINE_NETCDF_C="4.9.2"
+readonly BASELINE_NETCDF_F="4.5.4"
 
 readonly NPROCS="${NPROCS:-8}"
 
@@ -39,8 +39,11 @@ check_env() {
   local tool
   for tool in gcc gfortran mpicc mpif90 mpirun nc-config nf-config csh perl \
       make m4; do
-    command -v "${tool}" >/dev/null || die "missing ${tool}; select the build stack first"
+    command -v "${tool}" >/dev/null \
+      || die "missing ${tool}; select the build stack first (NetCDF: see build-deps.sh)"
   done
+  (( "$(gcc -dumpversion | cut -d. -f1)" >= 13 )) \
+    || die "GCC 13 or newer is required for -march=znver4"
   [[ "$(mpif90 --showme:command 2>/dev/null)" == gfortran ]] \
     || die "mpif90 must be Open MPI/HPC-X wrapping gfortran"
   [[ -x configure && -x compile ]] || die "not a WRF source directory: ${PWD}"
