@@ -41,7 +41,9 @@ The benchmark downloads WRF source and a ~14 GiB dataset, builds WRF, and runs a
 `-Ofast` relaxes floating-point rules. The run compares key output fields against the dataset's reference output and reports `comparison_status=REVIEW_REQUIRED`: no acceptance tolerance is defined, so completion is not scientific validation.
 
 ## Optimal run
-Select GCC 13+ and HPC-X/Open MPI first (e.g. `module load mpi/hpcx`). If `nf-config` isn't available, build NetCDF into the work directory with `build-deps.sh` (nothing is installed system-wide). Use a large local disk for `WORK_ROOT`.
+Select GCC 13+ and HPC-X/Open MPI first (e.g. `module load mpi/hpcx`). If `nf-config` isn't available, build NetCDF into the work directory with `build-deps.sh` (nothing is installed system-wide).
+
+**Check disk space before downloading.** The archive alone is ~14 GiB, and the extracted case plus WRF's output needs several times that. Never use the OS disk (usually ~30 GiB). The 480 GiB temp disk (usually mounted at `/mnt`) is a good `WORK_ROOT`; its data is lost if the VM is deallocated. Run `df -h "$WORK_ROOT"` first; `run-conus.sh` also stops before extracting if the run directory's disk is too small.
 
 ```bash
 SKILL_DIR=<repo>/.github/skills/wrf-performance
@@ -68,7 +70,7 @@ bash "$SKILL_DIR/scripts/run-conus.sh" "$WRF_SRC" "$ARCHIVE" "$RUN_DIR"
 
 - `build-deps.sh` downloads and builds zlib, HDF5, NetCDF-C, and NetCDF-Fortran (pinned versions) into one prefix and writes `deps-manifest.txt`.
 - `build-wrf.sh` configures GNU dmpar with the pinned flags, compiles `em_real` (`NPROCS` jobs, default 8), and writes `build-manifest.txt` (commit, flags, tool and NetCDF versions, `wrf.exe` hash, linkage). It refuses an already-configured tree; use a fresh checkout to rebuild.
-- `run-conus.sh` checks the commit, flags, and dataset checksum; prepares a new run directory with the 16×11 grid; verifies ranks land on CPUs 0-175 in order; runs WRF; then calls `summarize.sh`.
+- `run-conus.sh` checks the commit, flags, dataset checksum, and free space; prepares a new run directory with the 16×11 grid; verifies ranks land on CPUs 0-175 in order; runs WRF; then calls `summarize.sh`.
 - `summarize.sh <run-dir>` checks completion and input integrity, computes the timing metric, and runs the numerical comparison. Rerun it alone if WRF finished but reporting failed.
 
 ## Diagnostic workflow (user's results look off)
