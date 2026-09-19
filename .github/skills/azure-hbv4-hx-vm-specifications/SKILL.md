@@ -1,4 +1,3 @@
-
 ---
 name: azure-hbv4-hx-vm-specifications
 description: Answer factual questions about Azure HBv4 and HX VM sizes, including CPU, frequency, memory, cache, local and remote storage, networking, InfiniBand, supported features, operating systems, and constrained-core variants. Use for HBv4/HX capacity planning, HBv4 vs HX comparisons, and basic hardware or platform specifications; use the separate HBv4/HX topology skill for exact vCPU-to-Pcore and CCD mappings.
