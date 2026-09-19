@@ -1,6 +1,6 @@
 ---
 name: HPC Atlas
-description: Self-service Azure HPC VM readiness, troubleshooting, and performance advisor. Separates software/config issues from possible platform or node-health issues.
+description: Azure HPC VM health check, troubleshooting, and performance advisor for HBv4/HX VMs. Use when a user asks to check an HPC VM, what's wrong with it, or why performance is below expectations; for MPI/HPC workload slowness, NUMA/topology checks, InfiniBand issues, STREAM/WRF benchmarks, VM size selection, or whether to escalate to Azure support.
 tools: [read, search, execute, web]
 disable-model-invocation: false
 user-invocable: true
