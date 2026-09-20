@@ -14,7 +14,23 @@ Load this when diagnosing a result or tuning, not for a routine run. Numbers are
 | Dependencies (`build-deps.sh`) | zlib 1.3.2, HDF5 1.14.6, NetCDF-C 4.9.2, NetCDF-Fortran 4.5.4 |
 | Compiler | GCC 13+ (needed for `-march=znver4`) |
 
-**Baseline timing: not yet measured for 4.2.2.** Until it is, use the 4.4.2 numbers below as a rough guide (they're expected to be close), and label them as WRF 4.4.2 when comparing. Add the first validated 4.2.2 run here.
+### Single-node baseline
+
+Measured 2026-09-20 on one `Standard_HB176rs_v4`: Ubuntu 24.04.4,
+kernel `6.8.0-1064-azure`, GCC/GFortran 13.3.0, HPC-X Open MPI 4.1.9a1,
+NetCDF-C 4.9.2, and NetCDF-Fortran 4.5.4. The run used 176 ranks bound in
+order to CPUs 0-175, a 16x11 process grid, and
+`-O3 -march=znver4 -Ofast -ftree-vectorize -funroll-loops`.
+
+| Runs | Last-149 s/step | Step SD | Wall time | Final output write |
+|---:|---:|---:|---:|---:|
+| 1 | **2.413096** | 2.223501 | **12:56.39** | 23.22274 s |
+
+This is one run, so it establishes a reference point but no run-to-run variance.
+`step_sd_seconds` is variation between timesteps, not measurement uncertainty.
+The run completed all 240 timesteps and wrote the final output. Numerical comparison
+is `REVIEW_REQUIRED` because no scientific acceptance tolerance is defined for the
+expected floating-point differences from `-Ofast`.
 
 The NetCDF pair matches the recorded 4.4.2 results. The original 4.2.2 recipe used zlib 1.2.13, HDF5 1.12.2, NetCDF-C 4.7.4, and NetCDF-Fortran 4.5.3; those are superseded (zlib 1.2.13 is no longer on zlib.net, HDF5 1.12 is end of life). Other versions work too and are recorded in the manifests; they barely affect the timing metric (it excludes I/O), but list them as a difference when comparing.
 
