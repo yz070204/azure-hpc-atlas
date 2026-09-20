@@ -32,6 +32,20 @@ The run completed all 240 timesteps and wrote the final output. Numerical compar
 is `REVIEW_REQUIRED` because no scientific acceptance tolerance is defined for the
 expected floating-point differences from `-Ofast`.
 
+The legacy WRF V3 CONUS 2.5 km benchmark used `27.45` GFLOP per simulated
+second to derive a floating-point rate from simulation speed. NCAR states that
+the legacy cases and operation counts do not apply beginning with WRF V4.0, so
+do not report that metric by default for WRF 4.2.2. If a user explicitly asks
+for the legacy-derived GFP/s value, report its convention and caveat:
+
+```text
+Speed = round(15 / 2.413096, 2) = 6.22
+GFP/s = round(6.22 * 27.45, 2) = 170.74
+```
+
+Label `170.74` as a legacy formula-derived compatibility value, not a validated
+WRF 4.2.2 operation rate or hardware-counter measurement.
+
 The NetCDF pair matches the recorded 4.4.2 results. The original 4.2.2 recipe used zlib 1.2.13, HDF5 1.12.2, NetCDF-C 4.7.4, and NetCDF-Fortran 4.5.3; those are superseded (zlib 1.2.13 is no longer on zlib.net, HDF5 1.12 is end of life). Other versions work too and are recorded in the manifests; they barely affect the timing metric (it excludes I/O), but list them as a difference when comparing.
 
 ## Historical results: WRF 4.4.2
