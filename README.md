@@ -10,6 +10,11 @@ The skills are plain Markdown. Copilot can run them, and anyone can read them an
 
 ## Quick start
 
+**Prerequisites**
+ 
+- A GitHub account with a Copilot plan. If you get Copilot through your organization, use the organization account to login.
+- Each prompt uses AI credits from your Copilot plan.
+  
 Assumes the HBv4/HX full size VM runs on Azure HPC image, Ubuntu 24.04 (`microsoft-dsvm:ubuntu-hpc:2404:latest`).
 
 **1. Install GitHub Copilot CLI**
