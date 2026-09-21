@@ -1,6 +1,6 @@
 # HPC Atlas
 
-**AI-assisted Azure HPC VM troubleshooting, with domain knowledge as skills.**
+**SKU-Aware Readiness and Performance Agent for HPC VMs, with domain knowledge as skills.**
 
 HPC Atlas is a GitHub Copilot CLI agent plus a set of reusable skills that package the Azure HPC team's experience: readiness checks, topology validation, benchmark-driven performance tuning, and evidence-based triage that separates software or configuration issues from possible platform or node-health issues.
 
