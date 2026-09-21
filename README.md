@@ -6,6 +6,8 @@ HPC Atlas is a GitHub Copilot CLI agent plus a set of reusable skills that packa
 
 The skills are plain Markdown. Copilot can run them, and anyone can read them and follow along by hand.
 
+> **Status:** HPC Atlas started as a Microsoft Global Hackathon 2026 project. SKU coverage is currently limited to full-size HBv4 and HX, and a few workloads; more SKUs and skills will be added over time. See [Supported VMs](#supported-vms) and [Roadmap](#roadmap).
+
 ## Quick start
 
 Assumes the Azure HPC image, Ubuntu 24.04 (`microsoft-dsvm:ubuntu-hpc:2404:latest`).
@@ -79,36 +81,6 @@ Each workload skill states its own validated scope.
 - It asks before heavier workloads, multi-node tests, installing packages, rebooting, or changing persistent settings.
 - It never calls something a hardware failure from a single symptom or benchmark.
 - It redacts credentials, tokens, and customer data, and never uploads anything. All output goes to `~/hpc-atlas-output/<UTC timestamp>/`; when escalating, it writes an `escalation.md` there for you to review and attach to your support case.
-
-## Results
-
-The same prompt, run with and without HPC Atlas, on three models. Each case comes from a real support pattern. AIC = Copilot AI credits.
-
-**Wrong NUMA configuration** · prompt: `check this VM`
-
-| Model | With HPC Atlas | Without |
-|---|---|---|
-| Auto | 2 AIC, found it | 1 AIC, missed it |
-| GPT5.6 sol | 53 AIC, found it | 25 AIC, missed it |
-| GPT Astra 6 | 125 AIC, found it | 40 AIC, missed it |
-
-**No InfiniBand (VM size without IB)** · prompt: `why my VM does not have IB`
-
-| Model | With HPC Atlas | Without |
-|---|---|---|
-| Auto | 0.8 AIC, found it | 1.1 AIC, found it in 1 of 2 runs |
-| GPT5.6 sol | 13 AIC, found it | 10 AIC, blamed a missing driver |
-| GPT Astra 6 | 50 AIC, found it | 48 AIC, found it |
-
-**STREAM memory bandwidth** · prompt: `check stream memory bandwidth on this VM`
-
-| Model | With HPC Atlas | Without |
-|---|---|---|
-| Auto | 0.8 AIC, 750+ GB/s (published target) | 0.75 AIC, 0.7× target |
-| GPT5.6 sol | 16 AIC, 750+ GB/s | 16 AIC, 0.6× target |
-| GPT Astra 6 | 53 AIC, 750+ GB/s | 62 AIC, 0.7× target |
-
-Single runs unless noted. "Auto" is Copilot's automatic model selection, so the underlying model can vary between runs.
 
 ## Without Copilot
 
