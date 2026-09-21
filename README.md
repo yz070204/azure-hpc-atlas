@@ -10,7 +10,7 @@ The skills are plain Markdown. Copilot can run them, and anyone can read them an
 
 ## Quick start
 
-Assumes the Azure HPC image, Ubuntu 24.04 (`microsoft-dsvm:ubuntu-hpc:2404:latest`).
+Assumes the HBv4/HX full size VM runs on Azure HPC image, Ubuntu 24.04 (`microsoft-dsvm:ubuntu-hpc:2404:latest`).
 
 **1. Install GitHub Copilot CLI**
 
