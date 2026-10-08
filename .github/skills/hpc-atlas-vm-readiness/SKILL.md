@@ -25,7 +25,7 @@ Create one investigation folder, `~/hpc-atlas-output/<UTC timestamp>/`, and put 
 3. **HPC diagnostics:** run the collector (no approval needed) per `references/azure-hpc-diagnostics.md` into the investigation folder, or reuse an existing archive if VM state hasn't changed. Steps 4–5 read from the archive where it covers a check and run commands only for what it doesn't. If absent, sudo is unavailable, or collection is incomplete, say so and run everything directly.
 4. **Inventory vs spec:** compare with the SKU's specification skill: CPU model, vCPU count, NUMA node count (from the archive's `CPU/lscpu.txt`), total memory (`MemTotal` in `/proc/meminfo`; the guest sees slightly less than the spec), and local disks (`lsblk -d -o NAME,SIZE,MODEL`: count and size). If a topology skill covers the exact size (e.g. `azure-hbv4-hx176-topology` for full-size HBv4/HX), also compare the complete `LC_ALL=C lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE` output with its signature, which covers L3 distribution; guest L3 IDs may not reflect physical cache sharing, so follow that skill. Always report a mismatch; with no guest or boot-config cause, classify `possible-platform-or-node-health`.
 5. **Quick checks** (no approval needed). Sample overall CPU utilization three times (`vmstat 1 4`; ignore the first row; utilization = `100 - id`). If all samples are below 5%, run applicable benchmarks and note background activity; otherwise defer perf checks and report the load. Do not judge load by process count or load average alone.
-   - InfiniBand (IB SKUs only): link Active/LinkUp at the expected rate, from the archive's `Infiniband/ibstat.out`, or `ibstat` if the archive lacks it.
+   - InfiniBand (IB SKUs only): check link Active/LinkUp at the expected rate, from the archive's `Infiniband/ibstat.out`, or `ibstat` if the archive lacks it. Once the link is ready and the utilization gate above passes, run the local RDMA loopback below as a normal quick check.
    - Memory: run short STREAM using the detected SKU's supported recipe. Reuse a verified binary or build it if missing. The STREAM skill's private AOCC 4.0.0/source download needs no separate approval; request approval only for other dependency installs.
    - CPU (base and peak frequency from the SKU's specification skill; read per-core `cpu MHz` from `/proc/cpuinfo` midway through each load):
      - Turbo: busy-loop one CPU per NUMA node for 10 s (`for n in /sys/devices/system/node/node*/; do c=$(cut -d, -f1 $n/cpulist | cut -d- -f1); taskset -c $c timeout 10 sh -c 'while :; do :; done' & done; wait`). Loaded cores well above base mean turbo works; at or below base means turbo is off.
@@ -39,11 +39,23 @@ Create one investigation folder, `~/hpc-atlas-output/<UTC timestamp>/`, and put 
    - The user's own application, if already installed: compare with their earlier result or another node with the same input; without a baseline, report the result as a data point, not a verdict.
 7. **Workload context** (performance complaints only): workload, version, input, launch command, ranks/threads, metric, baseline, recent changes. Read scripts, logs, and job records first; ask the user only for what's missing.
 
+## Local InfiniBand RDMA loopback
+After triage confirms an idle VM and an Active/LinkUp IB port, select `<dev>` and `<ib-port>` from `ibv_devinfo`. Start the server in a separate session; wait for "Waiting for client to connect" before running the client:
+
+```bash
+timeout 20 ib_write_bw -d <dev> -i <ib-port> -D 5 --report_gbits
+timeout 20 ib_write_bw -d <dev> -i <ib-port> -D 5 --report_gbits localhost
+```
+
+The agent saves both outputs in the investigation folder, checks both exit statuses and a positive bandwidth result, and stops only its own test processes on error/interruption. If the default TCP port 18515 is occupied, use the same unused `-p` port on both commands; never stop another process. Ask before installing missing tools.
+
+Report pass/fail and average Gb/s with message size, queue-pair count, and duration. There is no calibrated bandwidth threshold; this tests local adapter/driver operation, not fabric or MPI performance. Reuse a successful result if VM state is unchanged; repeat suspect results 2-3 times under matched idle conditions.
+
 ## If a quick check fails
 **InfiniBand** (stop at the first step that explains it):
 1. Is the ConnectX device visible in `lspci`? Are modules loaded and RDMA devices present (`ibv_devinfo`)?
 2. Are port error counters increasing (`perfquery`, if available)?
-3. Loopback RDMA test on this VM (no approval needed; `<dev>` from `ibv_devinfo`): `ib_write_bw -d <dev> -D 5 & sleep 1; ib_write_bw -d <dev> -D 5 localhost; wait`. This checks the local adapter and driver, not the fabric. No calibrated baseline yet, so report pass/fail and the bandwidth as a data point.
+3. Once the device and link are ready, run or review the local RDMA loopback above. Reuse its logs rather than rerunning a successful test unless VM state changed. Resolve a failed loopback before proceeding to a fabric test.
 4. Real fabric test (ask first): `osu_bw` / `osu_latency` (pre-installed; find under `/opt`) over MPI between this VM and a second one the user provides.
 
 Link up at the expected rate proves local link readiness, not MPI connectivity or bandwidth.

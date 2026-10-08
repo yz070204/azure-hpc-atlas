@@ -32,7 +32,7 @@ Start with `transcript.log` (VM size, image, and any "common issues" found). `hp
 | `Infiniband/ibstat.out`, `ibv_devinfo.out` | Link state, rate, firmware | Link up ≠ working MPI |
 | `Memory/zone_reclaim_mode`, `limits.conf` | Config snapshot | Not the job's effective limits |
 
-**Not collected** (run directly): `lscpu -e`, total memory, local disks, STREAM, CPU frequency, steal time, VM tags.
+**Not collected** (run directly): `lscpu -e`, total memory, local disks, STREAM, CPU frequency, steal time, VM tags, local RDMA loopback.
 
 The script collects IB data only when the VM size name has `r` after the size family (e.g. `...176rs`). If the SKU spec says the size has IB but the archive has no `Infiniband/` folder, run `ibstat` directly. "No Infiniband Driver Detected" can mean a missing utility; verify with `lspci` and modules.
 
