@@ -15,7 +15,7 @@ Minimal, evidence-based triage on the affected VM. Follow the HPC Atlas agent ru
 | "Why is my job slow?" | Triage, then Application performance |
 | "Review this diagnostics archive" | `references/azure-hpc-diagnostics.md` |
 
-Use the current VM unless another is named. A short prompt is not permission to scan other nodes, run benchmarks, or change settings. Don't invent a symptom or assume WRF, STREAM, or IB is the bottleneck.
+Use the current VM unless another is named. Run the applicable quick checks below. If one is blocked, resolve it or request the necessary approval; do not report the check as complete. Don't invent a symptom or assume WRF, STREAM, or IB is the bottleneck.
 
 ## Triage
 Create one investigation folder, `~/hpc-atlas-output/<UTC timestamp>/`, and put every output from this investigation in it.
@@ -26,7 +26,7 @@ Create one investigation folder, `~/hpc-atlas-output/<UTC timestamp>/`, and put 
 4. **Inventory vs spec:** compare with the SKU's specification skill: CPU model, vCPU count, NUMA node count (from the archive's `CPU/lscpu.txt`), total memory (`MemTotal` in `/proc/meminfo`; the guest sees slightly less than the spec), and local disks (`lsblk -d -o NAME,SIZE,MODEL`: count and size). If a topology skill covers the exact size (e.g. `azure-hbv4-hx176-topology` for full-size HBv4/HX), also compare the complete `LC_ALL=C lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE` output with its signature, which covers L3 distribution; guest L3 IDs may not reflect physical cache sharing, so follow that skill. Always report a mismatch; with no guest or boot-config cause, classify `possible-platform-or-node-health`.
 5. **Quick checks** (no approval needed). First check load; if the node is busy, skip the perf checks and say why.
    - InfiniBand (IB SKUs only): link Active/LinkUp at the expected rate, from the archive's `Infiniband/ibstat.out`, or `ibstat` if the archive lacks it.
-   - Memory: short STREAM run per the SKU's STREAM skill, if one exists.
+   - Memory: run short STREAM using the detected SKU's supported recipe. Reuse a verified binary or build it if missing; request approval before installing dependencies.
    - CPU (base and peak frequency from the SKU's specification skill; read per-core `cpu MHz` from `/proc/cpuinfo` midway through each load):
      - Turbo: busy-loop one CPU per NUMA node for 10 s (`for n in /sys/devices/system/node/node*/; do c=$(cut -d, -f1 $n/cpulist | cut -d- -f1); taskset -c $c timeout 10 sh -c 'while :; do :; done' & done; wait`). Loaded cores well above base mean turbo works; at or below base means turbo is off.
      - Uniformity: busy-loop every core for 10 s. All-core load can run slightly below base, so don't read this as turbo off; flag only cores well below the rest. Also check `steal` in `vmstat 1` during the load; it should be ~0.
