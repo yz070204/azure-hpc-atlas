@@ -48,6 +48,13 @@ Reuse a verified binary; build only if missing. `build-stream.sh` takes `$WORK_R
 its argument, installs AOCC and compiles `stream` there (never in the caller's cwd), and
 reuses an already-cached AOCC install in that dir on a rerun instead of re-downloading:
 
+Reuse the existing STREAM `$WORK_ROOT`; create one only if none exists.
+AOCC 4.0.0 stays in `$WORK_ROOT/aocc-compiler-4.0.0`, separate from system compilers.
+Downloading this private compiler and STREAM
+source is part of the quick check; do not ask for separate approval or classify the
+check as inconclusive merely because AOCC is missing. Run the helpers as subprocesses,
+not by sourcing them; never use sudo for the build or change system compiler settings.
+
 ```bash
 bash "$SKILL_DIR/scripts/build-stream.sh" "$WORK_ROOT"   # only if stream isn't already built
 bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT" hbv4 3
