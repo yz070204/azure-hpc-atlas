@@ -59,7 +59,7 @@ copilot -C ./azure-hpc-atlas --agent hpc-atlas --yolo
 | Area | What HPC Atlas does |
 |---|---|
 | Readiness and triage | Runs the Azure HPC diagnostics under `/opt/azurehpc/diagnostics`, checks InfiniBand, CPU frequency, and topology, and classifies the result |
-| Topology | Full-size HBv4/HX validation and HBv5 guest/CCD references |
+| Topology | Full-size HBv4/HX and HBv5 guest signature validation, with separate host/CCD references |
 | STREAM | Builds and runs STREAM with the SKU's compiler flags and pinning, and compares against the published reference |
 | WRF | Builds and runs the CONUS 2.5 km benchmark with a validated single-node recipe |
 | General optimization | Profiles and tunes workloads without a dedicated skill: ranks and threads, pinning, MPI transport, compiler flags, I/O |
@@ -76,7 +76,7 @@ Every investigation ends with a verdict:
 ## Supported VMs
 
 - **Full coverage:** full-size HBv4 and HX (`Standard_HB176*_v4`, `Standard_HX176*`), e.g. `Standard_HB176rs_v4`, `Standard_HX176rs`
-- **Limited coverage:** HBv5 specifications and guest/CCD references for `Standard_HB368rs_v5`; workload validation remains pending
+- **Limited coverage:** HBv5 specifications, measured guest signature validation, and supplied CCD membership for `Standard_HB368rs_v5`; workload validation remains pending
 - **General guidance only:** constrained-core sizes (e.g. `Standard_HB176-144rs_v4`) and other HPC families
 
 Each workload skill states its own validated scope.
@@ -90,7 +90,7 @@ Each workload skill states its own validated scope.
 
 ## Without Copilot
 
-Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, and run the scripts next to it.
+Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, and run the scripts next to it. The topology wrappers share `.github/scripts/check-topology.sh`; keep that directory alongside the skills when copying them.
 
 ## Repository layout
 
@@ -98,11 +98,13 @@ Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, 
 .github/
   agents/
     hpc-atlas.agent.md                 # routes symptoms to skills; triage and report rules
+  scripts/
+    check-topology.sh                  # shared guest validator; explicit HBv4/HX and HBv5 profiles
   skills/
     hpc-atlas-vm-readiness/            # first-line readiness and triage, escalation bundle
     azure-hbv4-hx176-topology/         # vCPU/NUMA/CCD reference and check-topology.sh
     azure-hpc-vm-specifications/      # shared skill; HBv4/HX and HBv5 reference tables
-    azure-hbv5-368-topology/           # guest topology and supplied CCD membership
+    azure-hbv5-368-topology/           # measured guest/CCD reference and check-topology.sh
     stream-performance/                # STREAM build, run, summarize, reference targets
     wrf-performance/                   # WRF build, CONUS run, output comparison
     hpc-atlas-workload-optimization/   # tuning for workloads without a dedicated skill

@@ -51,7 +51,13 @@ Read-only checker (run from the repo root; confirm the VM is a covered size firs
 ```bash
 bash .github/skills/azure-hbv4-hx176-topology/scripts/check-topology.sh
 ```
-It validates every row (duplicates, missing/offline CPUs, all cache IDs) and exits nonzero on a mismatch or collection failure. It doesn't change affinity, build a CCD map, query Azure metadata, or run benchmarks. STREAM uses it; other workflows should reuse it rather than writing their own parser.
+To guard against selecting the wrong profile, pass the exact size already confirmed from IMDS:
+```bash
+bash .github/skills/azure-hbv4-hx176-topology/scripts/check-topology.sh --sku Standard_HB176rs_v4
+```
+Use the actual confirmed size (including HX where applicable), not the example unconditionally. With no arguments, the existing command remains supported and SKU confirmation is the caller's responsibility. `--sku` rejects constrained-core, unsupported, and wrong-profile sizes; it does not discover or verify VM identity.
+
+This wrapper selects the HBv4/HX profile in the [shared validator](../../scripts/check-topology.sh). It validates every row (duplicates, missing/offline CPUs, all cache IDs) and exits nonzero on invalid arguments, a mismatch, or collection failure. It doesn't change affinity, build a CCD map, query Azure metadata, or run benchmarks. STREAM and other workflows should reuse this wrapper rather than writing their own parser. Keep the shared validator with the skills when copying them; the wrapper resolves it relative to its own location, not the working directory.
 
 **Any difference** in CPU count, online state, NUMA ranges, socket, core numbering, private-cache IDs, or the L3 signature is a reportable discrepancy, even if the workload runs. Capture the full `lscpu -e` output, SKU, image, and kernel; don't reinterpret the output as a physical map. First rule out a wrong SKU, offline CPUs, boot configuration, or a known OS/kernel setting; otherwise classify `possible-platform-or-node-health` and prepare the escalation bundle.
 
