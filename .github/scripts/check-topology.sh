@@ -1,8 +1,7 @@
 #!/bin/bash
-# Shared, read-only guest signature validator. Wrappers select the profile;
-# the caller confirms VM identity. No host/CCD mapping or metadata queries.
-# Usage: bash check-topology.sh <hbv4-hx|hbv5> [--sku <confirmed-vm-size>]
-# Exit status: 0 on a match, 1 on invalid input, mismatch, or collection error.
+# Read-only guest topology check; caller confirms a covered full-size VM.
+# Usage: bash check-topology.sh <hbv4|hx|hbv5>
+# Returns 0 on a match, nonzero on invalid input or a failed check.
 
 set -euo pipefail
 
@@ -10,27 +9,9 @@ err() {
   echo "ERROR: $*" >&2
 }
 
-check_sku() {
-  local profile=$1 sku=$2
-  case "$profile" in
-    hbv4-hx)
-      if [[ "$sku" =~ ^Standard_HB176[[:alnum:]]*_v4$ ||
-            "$sku" =~ ^Standard_HX176[[:alnum:]]*$ ]]; then
-        return 0
-      fi
-      ;;
-    hbv5)
-      if [[ "$sku" == Standard_HB368rs_v5 ]]; then
-        return 0
-      fi
-      ;;
-  esac
-  err "SKU '$sku' is not covered by the '$profile' profile (full-size VMs only)."
-  return 1
-}
-
+# Compares every lscpu row with the selected guest signature, not a CCD map.
 validate_topology() {
-  awk -v profile="$1" -v expected_cpus="$2" -v reference="$3" '
+  awk -v expected_cpus="$1" -v reference="$2" '
     function fail(message) {
       print "ERROR: " message > "/dev/stderr"
       failed = 1
@@ -39,10 +20,8 @@ validate_topology() {
 
     BEGIN {
       # HBv4/HX private-cache offsets and guest L3 bases per NUMA node.
-      private_offset[0] = 0; private_offset[1] = 4
-      private_offset[2] = 40; private_offset[3] = 44
-      l3_base[0] = 0; l3_base[1] = 6
-      l3_base[2] = 16; l3_base[3] = 22
+      split("0 4 40 44", private_offset)
+      split("0 6 16 22", l3_base)
     }
 
     NR == 1 {
@@ -64,11 +43,11 @@ validate_topology() {
         fail("Duplicated CPU " cpu ".")
       }
 
-      if (profile == "hbv4-hx") {
+      if (expected_cpus == 176) {
         node = int(cpu / 44)
         socket = int(cpu / 88)
-        private_cache = cpu + private_offset[node]
-        l3 = l3_base[node] + int((cpu % 44) / 8)
+        private_cache = cpu + private_offset[node + 1]
+        l3 = l3_base[node + 1] + int((cpu % 44) / 8)
       } else {
         node = int(cpu / 23)
         socket = int(node / 4)
@@ -100,39 +79,33 @@ validate_topology() {
 }
 
 main() {
-  if (( $# != 1 && $# != 3 )); then
-    err "Usage: bash check-topology.sh <hbv4-hx|hbv5> [--sku <confirmed-vm-size>]"
+  if (( $# != 1 )); then
+    err "Usage: bash check-topology.sh <hbv4|hx|hbv5>"
     return 1
   fi
 
-  local profile=$1 expected_cpus reference tool topology
-  case "$profile" in
-    hbv4-hx) expected_cpus=176; reference="Full-size HBv4/HX" ;;
-    hbv5) expected_cpus=368; reference="Full-size HBv5 measured" ;;
-    *) err "Unknown topology profile '$profile' (expected hbv4-hx or hbv5)."; return 1 ;;
+  local expected_cpus reference topology
+  case "$1" in
+    hbv4|hx)
+      expected_cpus=176
+      reference="Full-size HBv4/HX"
+      ;;
+    hbv5)
+      expected_cpus=368
+      reference="Full-size HBv5 measured"
+      ;;
+    *)
+      err "Unknown family '$1'; expected hbv4, hx, or hbv5."
+      return 1
+      ;;
   esac
-
-  if (( $# == 3 )); then
-    if [[ "$2" != --sku ]]; then
-      err "Expected --sku <confirmed-vm-size>."
-      return 1
-    fi
-    check_sku "$profile" "$3" || return 1
-  fi
-
-  for tool in lscpu awk; do
-    if ! command -v "$tool" >/dev/null; then
-      err "Required tool missing: $tool"
-      return 1
-    fi
-  done
 
   if ! topology="$(LC_ALL=C lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE)"; then
     err "Could not collect the lscpu topology."
     return 1
   fi
 
-  printf '%s\n' "$topology" | validate_topology "$profile" "$expected_cpus" "$reference"
+  validate_topology "${expected_cpus}" "${reference}" <<< "${topology}"
 }
 
 main "$@"

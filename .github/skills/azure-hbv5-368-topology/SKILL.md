@@ -52,13 +52,11 @@ Collect with `LC_ALL=C lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE`. All 368 CPUs
 
 Equivalent formulas for CPU `c`: `n = floor(c/23)`, `s = floor(n/4)`, private-cache ID = `c + 36*s + (n mod 4)`, L3 ID = `16*s + 3*(n mod 4) + floor((c mod 23)/8)`.
 
-Read-only checker (run from the repo root after confirming the exact size from IMDS):
+Run the [shared checker](../../scripts/check-topology.sh) from the repo root after IMDS confirms `Standard_HB368rs_v5`:
 ```bash
-bash .github/skills/azure-hbv5-368-topology/scripts/check-topology.sh --sku Standard_HB368rs_v5
+bash .github/scripts/check-topology.sh hbv5
 ```
-Only pass this size if it is the actual confirmed VM size. `--sku` rejects constrained-core, unsupported, and wrong-profile sizes; it does not discover or verify VM identity. The no-argument form is also supported, with SKU confirmation the caller's responsibility.
-
-This wrapper selects the HBv5 profile in the [shared validator](../../scripts/check-topology.sh). It validates every row (duplicates, missing/offline CPUs, all cache IDs) and exits nonzero on invalid arguments, a mismatch, or collection failure. It does not change affinity, query Azure metadata, validate physical CCD placement, or run benchmarks. Keep the shared validator with the skills when copying them; the wrapper resolves it relative to its own location, not the working directory. Never run the HBv4/HX wrapper on HBv5.
+The family selects the signature; no exact SKU is passed. The script does not query IMDS or verify SKU eligibility; do not use this profile on constrained-core or other unsupported sizes. It checks all CPU rows, online state, NUMA/socket/core numbering, and cache IDs, and exits nonzero on a mismatch or collection failure. It is read-only and does not validate physical CCD placement.
 
 A pass means only that the guest matches this measured signature, not that the VM is healthy or workloads are calibrated. Report differences with this measured signature and capture SKU, image, kernel, and complete output. Rule out a wrong size, offline CPUs, and guest configuration before treating a difference as a possible platform issue; a numbering difference alone is not proof of a fault.
 

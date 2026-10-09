@@ -90,7 +90,7 @@ Each workload skill states its own validated scope.
 
 ## Without Copilot
 
-Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, and run the scripts next to it. The topology wrappers share `.github/scripts/check-topology.sh`; keep that directory alongside the skills when copying them.
+Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, and run the scripts next to it. Both topology skills call `.github/scripts/check-topology.sh <family>` directly (`hbv4`, `hx`, or `hbv5`), after confirming a covered full-size VM. Keep that script when copying the skills.
 
 ## Repository layout
 
@@ -99,12 +99,12 @@ Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, 
   agents/
     hpc-atlas.agent.md                 # routes symptoms to skills; triage and report rules
   scripts/
-    check-topology.sh                  # shared guest validator; explicit HBv4/HX and HBv5 profiles
+    check-topology.sh                  # shared guest validator; hbv4, hx, or hbv5
   skills/
     hpc-atlas-vm-readiness/            # first-line readiness and triage, escalation bundle
-    azure-hbv4-hx176-topology/         # vCPU/NUMA/CCD reference and check-topology.sh
+    azure-hbv4-hx176-topology/         # vCPU/NUMA/CCD reference and shared checker command
     azure-hpc-vm-specifications/      # shared skill; HBv4/HX and HBv5 reference tables
-    azure-hbv5-368-topology/           # measured guest/CCD reference and check-topology.sh
+    azure-hbv5-368-topology/           # measured guest/CCD reference and shared checker command
     stream-performance/                # STREAM build, run, summarize, reference targets
     wrf-performance/                   # WRF build, CONUS run, output comparison
     hpc-atlas-workload-optimization/   # tuning for workloads without a dedicated skill
