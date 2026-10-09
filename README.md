@@ -6,7 +6,7 @@ HPC Atlas is a **GitHub Copilot CLI Custom agent** plus a set of reusable skills
 
 The skills are plain Markdown. Copilot can run them, and anyone can read them and follow along by hand.
 
-> **Status:** HPC Atlas started as a Microsoft Global Hackathon 2026 project. SKU coverage is currently limited to full-size HBv4 and HX, and a few workloads; more SKUs and skills will be added over time. See [Supported VMs](#supported-vms) and [Roadmap](#roadmap).
+> **Status:** HPC Atlas started as a Microsoft Global Hackathon 2026 project. Full coverage is currently limited to full-size HBv4 and HX, and a few workloads. HBv5 specifications and topology references are available; workload validation remains pending. See [Supported VMs](#supported-vms) and [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -59,11 +59,11 @@ copilot -C ./azure-hpc-atlas --agent hpc-atlas --yolo
 | Area | What HPC Atlas does |
 |---|---|
 | Readiness and triage | Runs the Azure HPC diagnostics under `/opt/azurehpc/diagnostics`, checks InfiniBand, CPU frequency, and topology, and classifies the result |
-| Topology | Validates vCPU, NUMA, and CCD layout against the published reference for full-size HBv4 and HX |
+| Topology | Full-size HBv4/HX validation and HBv5 guest/CCD references |
 | STREAM | Builds and runs STREAM with the SKU's compiler flags and pinning, and compares against the published reference |
 | WRF | Builds and runs the CONUS 2.5 km benchmark with a validated single-node recipe |
 | General optimization | Profiles and tunes workloads without a dedicated skill: ranks and threads, pinning, MPI transport, compiler flags, I/O |
-| Specifications | Answers factual questions about HBv4 and HX sizes and capabilities |
+| Specifications | Answers factual questions about HBv4, HX, and HBv5 sizes and capabilities |
 
 Every investigation ends with a verdict:
 
@@ -76,6 +76,7 @@ Every investigation ends with a verdict:
 ## Supported VMs
 
 - **Full coverage:** full-size HBv4 and HX (`Standard_HB176*_v4`, `Standard_HX176*`), e.g. `Standard_HB176rs_v4`, `Standard_HX176rs`
+- **Limited coverage:** HBv5 specifications and guest/CCD references for `Standard_HB368rs_v5`; workload validation remains pending
 - **General guidance only:** constrained-core sizes (e.g. `Standard_HB176-144rs_v4`) and other HPC families
 
 Each workload skill states its own validated scope.
@@ -100,7 +101,8 @@ Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, 
   skills/
     hpc-atlas-vm-readiness/            # first-line readiness and triage, escalation bundle
     azure-hbv4-hx176-topology/         # vCPU/NUMA/CCD reference and check-topology.sh
-    azure-hbv4-hx-vm-specifications/   # published HBv4 and HX specifications
+    azure-hpc-vm-specifications/      # shared skill; HBv4/HX and HBv5 reference tables
+    azure-hbv5-368-topology/           # guest topology and supplied CCD membership
     stream-performance/                # STREAM build, run, summarize, reference targets
     wrf-performance/                   # WRF build, CONUS run, output comparison
     hpc-atlas-workload-optimization/   # tuning for workloads without a dedicated skill
