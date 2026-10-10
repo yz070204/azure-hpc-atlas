@@ -1,29 +1,26 @@
 #!/bin/bash
-#
-# Runs the STREAM memory-bandwidth benchmark on an Azure HBv4/HX VM with the
-# per-SKU thread/affinity recipe, N times, then prints a median/range summary.
-# Expects a prebuilt `stream` binary and AOCC's setenv script in <work-dir>,
-# and summarize.py next to this script (see build-stream.sh).
-#
-# Usage: run-stream.sh <work-dir> <platform> [trials]
-#   platform: hbv2 | hbv3 | hbv4 | hx   (full-size SKU in the family)
-#   trials:   number of runs to aggregate (default 3)
+# Usage: run-stream.sh <work-dir> <platform> [trials] [all-core|ccd-balanced|ccd-balanced-7]
+# HBv5 is restricted to Standard_HB368rs_v5; balanced options select six or seven cores/CCD.
 
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-
 readonly THP_ENABLED="/sys/kernel/mm/transparent_hugepage/enabled"
 readonly THP_DEFRAG="/sys/kernel/mm/transparent_hugepage/defrag"
+SAVED_THP_ENABLED=""
+SAVED_THP_DEFRAG=""
 
-# Current THP modes, captured before we touch them, so the trap can restore
-# each knob to its own original value (they often differ, e.g. always/madvise).
-readonly SAVED_THP_ENABLED="$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_ENABLED")"
-readonly SAVED_THP_DEFRAG="$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_DEFRAG")"
-
-# Per-SKU thread count and CPU affinity (physical-core layout).
 configure_sku() {
-  case "$1" in
+  local platform=$1 placement=${2:-all-core} n offset c
+  if [[ "$placement" != "all-core" && "$placement" != "ccd-balanced" && "$placement" != "ccd-balanced-7" ]]; then
+    echo "ERROR: unknown placement '$placement' (expected all-core|ccd-balanced|ccd-balanced-7)" >&2
+    return 1
+  fi
+  if [[ "$placement" != "all-core" && "$platform" != "hbv5" ]]; then
+    echo "ERROR: $placement is currently defined only for full-size HBv5" >&2
+    return 1
+  fi
+  case "$platform" in
     hbv2)
       export OMP_NUM_THREADS=32
       export GOMP_CPU_AFFINITY="0,1,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,61,64,68,72,76,80,84,88,92,96,100,104,108,112,116"
@@ -32,77 +29,168 @@ configure_sku() {
       export OMP_NUM_THREADS=16
       export GOMP_CPU_AFFINITY="0,8,16,24,30,38,46,54,60,68,76,84,90,98,106,114"
       ;;
-    hbv4|hx)   # different SKUs, same 176-core silicon -> same STREAM recipe
+    hbv4|hx)
       export OMP_NUM_THREADS=176
       export GOMP_CPU_AFFINITY="0-175"
       ;;
+    hbv5)
+      export OMP_NUM_THREADS=368
+      export GOMP_CPU_AFFINITY="0-367"
+      if [[ "$placement" != "all-core" ]]; then
+        local cpus=() cores_per_ccd=6 first
+        if [[ "$placement" == "ccd-balanced-7" ]]; then
+          cores_per_ccd=7
+        fi
+        for ((n = 0; n < 16; n++)); do
+          for offset in 0 8 16; do
+            first=0
+            # Match the supplied seven/CCD mask: omit the first core of each eight-core group.
+            if [[ "$placement" == "ccd-balanced-7" && "$offset" != "16" ]]; then
+              first=1
+            fi
+            for ((c = first; c < first + cores_per_ccd; c++)); do
+              cpus+=("$((23 * n + offset + c))")
+            done
+          done
+        done
+        export OMP_NUM_THREADS=$((48 * cores_per_ccd))
+        GOMP_CPU_AFFINITY=$(IFS=,; echo "${cpus[*]}")
+      fi
+      ;;
     *)
-      echo "ERROR: unknown platform '$1' (expected hbv2|hbv3|hbv4|hx)" >&2
-      exit 1
+      echo "ERROR: unknown platform '$platform' (expected hbv2|hbv3|hbv4|hx|hbv5)" >&2
+      return 1
       ;;
   esac
 }
 
-# OpenMP runtime settings shared across SKUs. OMP_DISPLAY_AFFINITY makes the
-# runtime print each thread's binding; the format is pinned to exactly what
-# summarize.py parses, so it doesn't depend on the runtime's default format.
 configure_omp() {
-  export OMP_SCHEDULE=static
-  export OMP_DYNAMIC=false
-  export OMP_THREAD_LIMIT=256
-  export OMP_STACKSIZE=256M
-  export OMP_DISPLAY_AFFINITY=true
+  unset OMP_PLACES OMP_PROC_BIND KMP_AFFINITY KMP_HW_SUBSET KMP_PLACE_THREADS KMP_STACKSIZE GOMP_STACKSIZE
+  export OMP_SCHEDULE=static OMP_DYNAMIC=false
+  export OMP_THREAD_LIMIT=$((OMP_NUM_THREADS > 256 ? OMP_NUM_THREADS : 256))
+  export OMP_STACKSIZE=256M OMP_DISPLAY_AFFINITY=true
   export OMP_AFFINITY_FORMAT="thread %n bound to OS proc set {%A}"
 }
 
-# THP is a *global* kernel setting, not per-shell - it stays changed after this
-# script exits. Force it on (both knobs) for the run; the EXIT trap restores it.
-enable_thp() {
-  echo always | sudo tee "$THP_ENABLED" "$THP_DEFRAG" >/dev/null
+verify_hbv5() {
+  local sku
+  sku=$(curl -fsS --max-time 10 --noproxy '*' -H Metadata:true \
+    'http://169.254.169.254/metadata/instance/compute/vmSize?api-version=2021-02-01&format=text')
+  if [[ "$sku" != "Standard_HB368rs_v5" ]]; then
+    echo "ERROR: hbv5 requires Standard_HB368rs_v5, detected '$sku'" >&2
+    return 1
+  fi
+  bash "$script_dir/../../../scripts/check-topology.sh" hbv5
 }
+
 restore_thp() {
-  echo "${SAVED_THP_ENABLED:-madvise}" | sudo tee "$THP_ENABLED" >/dev/null
-  echo "${SAVED_THP_DEFRAG:-madvise}" | sudo tee "$THP_DEFRAG" >/dev/null
+  local status=$?
+  if ! printf '%s\n' "$SAVED_THP_ENABLED" | sudo -n tee "$THP_ENABLED" >/dev/null; then
+    echo "ERROR: failed to restore THP enabled='$SAVED_THP_ENABLED'" >&2
+    status=1
+  fi
+  if ! printf '%s\n' "$SAVED_THP_DEFRAG" | sudo -n tee "$THP_DEFRAG" >/dev/null; then
+    echo "ERROR: failed to restore THP defrag='$SAVED_THP_DEFRAG'" >&2
+    status=1
+  fi
+  return "$status"
 }
 
 main() {
-  local wdir=${1:?usage: run-stream.sh <work-dir> <platform> [trials]}
-  local platform=${2:?missing platform (hbv2|hbv3|hbv4|hx)}
-  local trials=${3:-3}
-  local host rundir i
-  host="$(hostname | tr '[:upper:]' '[:lower:]')"
-
-  cd "$wdir"
-  rundir="stream-$host"
-  mkdir "$rundir"
+  local wdir=${1:?usage: run-stream.sh <work-dir> <platform> [trials] [placement]}
+  local platform=${2:?missing platform (hbv2|hbv3|hbv4|hx|hbv5)}
+  local trials=${3:-3} placement=${4:-all-core}
+  local host rundir i artifact
+  if (( $# > 4 )) || [[ ! "$trials" =~ ^[1-9][0-9]*$ ]] || (( ${#trials} > 4 )); then
+    echo "ERROR: trials must be a positive integer of at most 4 digits; expected at most four arguments" >&2
+    return 1
+  fi
+  configure_sku "$platform" "$placement"
+  configure_omp
+  if [[ "$platform" == "hbv5" ]]; then
+    verify_hbv5
+  fi
+  wdir=$(realpath "$wdir")
+  if [[ ! -x "$wdir/stream" || ! -f "$wdir/setenv_AOCC.sh" ]]; then
+    echo "ERROR: missing STREAM binary or AOCC environment in '$wdir'; run build-stream.sh first" >&2
+    return 1
+  fi
+  sudo -n true
+  host=$(hostname | tr '[:upper:]' '[:lower:]')
+  rundir=$(mktemp -d "$wdir/stream-$host-$platform-$placement-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
   cd "$rundir"
+  echo "Run directory: $rundir"
   cp ../stream .
-  # setenv_AOCC.sh appends to vars like $LIBRARY_PATH without defining them
-  # first, which trips `set -u`; seed them empty before sourcing.
+  for artifact in stream.c build.json build-command.txt compiler-version.txt; do
+    if [[ -f "../$artifact" ]]; then
+      cp "../$artifact" .
+    else
+      echo "WARNING: legacy build is missing provenance artifact '$artifact'" >&2
+    fi
+  done
   : "${LIBRARY_PATH:=}" "${LD_LIBRARY_PATH:=}" "${C_INCLUDE_PATH:=}" "${CPLUS_INCLUDE_PATH:=}"
   source ../setenv_AOCC.sh
+  ldd ./stream > linkage.txt
+  SAVED_THP_ENABLED=$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_ENABLED")
+  SAVED_THP_DEFRAG=$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$THP_DEFRAG")
+  if [[ -z "$SAVED_THP_ENABLED" || -z "$SAVED_THP_DEFRAG" ]]; then
+    echo "ERROR: could not read original THP modes" >&2
+    return 1
+  fi
+  LC_ALL=C lscpu > lscpu.txt
+  LC_ALL=C lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE > topology.txt
+  grep -E 'MemTotal|MemAvailable|SwapTotal' /proc/meminfo > memory.txt
+  python3 - "$platform" "$placement" "$trials" "$SAVED_THP_ENABLED" "$SAVED_THP_DEFRAG" <<'PYMETA'
+import datetime, json, os, pathlib, platform, sys
 
-  configure_sku "$platform"
-  configure_omp
+metadata = {
+    "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    "platform": sys.argv[1], "placement": sys.argv[2], "trials": int(sys.argv[3]),
+    "kernel": platform.release(),
+    "numa_balancing": int(pathlib.Path("/proc/sys/kernel/numa_balancing").read_text()),
+    "zone_reclaim_mode": int(pathlib.Path("/proc/sys/vm/zone_reclaim_mode").read_text()),
+    "environment": {k: v for k, v in os.environ.items() if k.startswith(("OMP_", "GOMP_", "KMP_"))},
+    "thp_during_run": {"enabled": "always", "defrag": "always"},
+    "thp_original": {"enabled": sys.argv[4], "defrag": sys.argv[5]},
+    "cache_handling": "sync and drop_caches=3 before each trial",
+}
+pathlib.Path("run.json").write_text(json.dumps(metadata, indent=2) + "\n")
+PYMETA
 
   trap restore_thp EXIT
-  enable_thp
-
-  # One log per trial; drop caches before each so no trial reads warm cache.
-  # 2>&1: affinity lines go to stderr, results to stdout - summarize.py needs both.
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  printf 'always\n' | sudo -n tee "$THP_ENABLED" "$THP_DEFRAG" >/dev/null
   for ((i = 1; i <= trials; i++)); do
-    echo "Trial $i/$trials..."
-    sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
-    ./stream > "stream-$host-$i.log" 2>&1
+    echo "Trial $i/$trials: platform=$platform placement=$placement threads=$OMP_NUM_THREADS stacksize=$OMP_STACKSIZE"
+    vmstat 1 4 > "vmstat-before-$i.txt"
+    if ! awk 'NR > 3 && (100 - $15) >= 5 {busy=1} END {exit busy}' "vmstat-before-$i.txt"; then
+      echo "ERROR: CPU utilization is not below 5% in all three samples; defer STREAM. Evidence: $rundir/vmstat-before-$i.txt" >&2
+      return 1
+    fi
+    sync
+    printf '3\n' | sudo -n tee /proc/sys/vm/drop_caches >/dev/null
+    if ./stream > "stream-$host-$i.log" 2>&1; then
+      :
+    else
+      local status=$?
+      echo "ERROR: STREAM trial $i exited $status; inspect $rundir/stream-$host-$i.log" >&2
+      return "$status"
+    fi
+    python3 "$script_dir/summarize.py" --expected-threads "$OMP_NUM_THREADS" \
+      --expected-cpus "$GOMP_CPU_AFFINITY" "stream-$host-$i.log" > "trial-$i.json"
   done
 
+  python3 "$script_dir/summarize.py" --expected-threads "$OMP_NUM_THREADS" \
+    --expected-cpus "$GOMP_CPU_AFFINITY" "stream-$host-"*.log > summary.json
   echo
   echo "=== Summary across $trials trials (median / range) ==="
-  python3 "$script_dir/summarize.py" "stream-$host-"*.log
-
+  cat summary.json
   echo
-  echo "Host state: THP set to 'always' for the run and restored to enabled='${SAVED_THP_ENABLED:-madvise}', defrag='${SAVED_THP_DEFRAG:-madvise}'; page caches dropped before each trial."
-  echo "Logs: $(realpath .)"
+  echo "Host state: THP set to 'always' for the run; restoring enabled='$SAVED_THP_ENABLED', defrag='$SAVED_THP_DEFRAG'; page caches dropped before each trial."
+  echo "Logs: $rundir"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

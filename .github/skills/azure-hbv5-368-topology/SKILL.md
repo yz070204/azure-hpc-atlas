@@ -6,7 +6,7 @@ user-invocable: false
 
 # Azure HBv5 368-vCPU topology
 
-**Status: measured guest signature and supplied host/CCD membership available; calibrated workload coverage pending.** Applies only to `Standard_HB368rs_v5`, not constrained-core sizes such as `Standard_HB368-336rs_v5`. Public specifications are in `azure-hpc-vm-specifications` ([HBv5 reference](../azure-hpc-vm-specifications/references/hbv5.md)).
+**Status: measured guest signature and supplied host/CCD membership available; a [single-VM STREAM reference](../stream-performance/references/stream-reference-hbv5.md) is available, with other calibrated workload coverage pending.** Applies only to `Standard_HB368rs_v5`, not constrained-core sizes such as `Standard_HB368-336rs_v5`. Public specifications are in `azure-hpc-vm-specifications` ([HBv5 reference](../azure-hpc-vm-specifications/references/hbv5.md)).
 
 ## Terms
 
@@ -141,4 +141,4 @@ For a vCPU, return its row's vNUMA, Pnuma, PCCD, and Pcore **set**, not an exact
 - Confirm the full-size SKU and live guest topology. Report disagreements with host evidence; do not override them with this reference.
 - Use vCPU IDs, never Pcore IDs. Keep latency-sensitive communicating threads within one vNUMA node where possible.
 - For eight threads on one CCD, use an eight-vCPU row. Seven-vCPU rows expose only seven cores from that CCD.
-- Validate performance and correctness with the workload. This mapping provides no HBv5 benchmark targets; HBv4/HX STREAM/WRF targets do not apply.
+- Validate performance and correctness with the workload. This mapping itself provides no benchmark targets; use the separate [HBv5 STREAM reference](../stream-performance/references/stream-reference-hbv5.md) only within its measured scope. HBv4/HX STREAM/WRF targets do not apply.

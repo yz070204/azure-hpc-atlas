@@ -11,6 +11,7 @@ OMP_DISPLAY_AFFINITY=true and captured stderr (see run-stream.sh).
 
 import argparse
 import json
+import math
 import re
 import statistics
 from pathlib import Path
@@ -20,21 +21,43 @@ KERNELS = ("Copy", "Scale", "Add", "Triad")
 
 # Fields that must match before runs may be aggregated together.
 def workload_of(record):
-  return {k: record[k] for k in ("array_elements", "ntimes", "threads")}
+  return {k: record[k] for k in ("array_elements", "element_bytes", "ntimes", "threads", "cpu_ids")}
 
 
 # Confirm the run pinned threads to `threads` distinct CPUs (not floating or
 # oversubscribed at the guest level). Doesn't detect hypervisor core mapping —
 # use lscpu / the topology check for that.
 def check_affinity(text, threads):
-  cpus = re.findall(r"bound to OS proc set\s+\{(\d+)\}", text)
-  if not cpus:
+  bindings = re.findall(r"thread (\d+) bound to OS proc set\s+\{([^}]*)\}", text)
+  if not bindings:
     raise ValueError("no affinity lines found "
                      "(need OMP_DISPLAY_AFFINITY=true and stderr captured)")
-  distinct = {int(c) for c in cpus}
-  if len(distinct) != threads:
-    raise ValueError(f"expected {threads} distinct pinned CPUs, saw {len(distinct)}")
+  by_thread = {}
+  for thread, cpu in bindings:
+    if not cpu.isdigit():
+      raise ValueError(f"thread {thread} is not pinned to one CPU: {cpu}")
+    thread, cpu = int(thread), int(cpu)
+    if thread in by_thread and by_thread[thread] != cpu:
+      raise ValueError(f"thread {thread} changed CPU binding")
+    by_thread[thread] = cpu
+  distinct = set(by_thread.values())
+  if len(by_thread) != threads or len(distinct) != threads:
+    raise ValueError(f"expected {threads} distinct pinned threads/CPUs, "
+                     f"saw {len(by_thread)} threads on {len(distinct)} CPUs")
   return sorted(distinct)
+
+
+def parse_cpu_list(value):
+  cpus = set()
+  for group in value.replace(" ", ",").split(","):
+    if not re.fullmatch(r"\d+(?:-\d+)?", group):
+      raise ValueError(f"invalid CPU list: {value}")
+    ends = [int(c) for c in group.split("-")]
+    first, last = ends[0], ends[-1]
+    if first > last:
+      raise ValueError(f"invalid CPU range: {group}")
+    cpus.update(range(first, last + 1))
+  return sorted(cpus)
 
 
 # Parse one log into workload params, best rate, and avg-time-derived rate.
@@ -52,8 +75,9 @@ def parse_log(text):
   element_bytes = field(r"This system uses\s+(\d+)\s+bytes per array element")
   ntimes = field(r"Each kernel will be executed\s+(\d+)\s+times")
   threads = field(r"Number of Threads counted\s*=\s*(\d+)")
+  if min(array_elements, element_bytes, ntimes, threads) <= 0 or ntimes < 2:
+    raise ValueError("invalid STREAM workload parameters")
   cpu_ids = check_affinity(text, threads)
-
   best = {}
   average = {}
   for kernel in KERNELS:
@@ -62,6 +86,8 @@ def parse_log(text):
     if not match:
       raise ValueError(f"missing {kernel} result row")
     rate, avg_time, _min_time, _max_time = map(float, match.groups())
+    if not all(math.isfinite(v) and v > 0 for v in (rate, avg_time, _min_time, _max_time)):
+      raise ValueError(f"invalid {kernel} rate or timing")
     words = 2 if kernel in ("Copy", "Scale") else 3  # arrays moved per element
     moved_bytes = array_elements * element_bytes * words
     best[kernel] = rate                              # STREAM's own peak (min time)
@@ -69,6 +95,7 @@ def parse_log(text):
 
   return {
       "array_elements": array_elements,
+      "element_bytes": element_bytes,
       "ntimes": ntimes,
       "threads": threads,
       "cpu_ids": cpu_ids,
@@ -93,9 +120,11 @@ def spread(records, rate_key):
 
 
 def summarize(records):
+  if not records:
+    raise ValueError("no STREAM runs to summarize")
   workload = workload_of(records[0])
   if any(workload_of(r) != workload for r in records):
-    raise ValueError("runs differ in array size / ntimes / threads; refusing to aggregate")
+    raise ValueError("runs differ in array size / element type / ntimes / threads / CPU placement; refusing to aggregate")
   return {
       "workload": workload,
       "repetitions": len(records),
@@ -110,12 +139,19 @@ def summarize(records):
 def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("logs", nargs="+", type=Path, help="STREAM log file(s)")
+  parser.add_argument("--expected-threads", type=int, help="required effective thread count")
+  parser.add_argument("--expected-cpus", help="required effective CPU IDs (list/ranges)")
   args = parser.parse_args()
 
   try:
+    expected_cpus = parse_cpu_list(args.expected_cpus) if args.expected_cpus is not None else None
     records = []
     for path in args.logs:
       record = parse_log(path.read_text())
+      if args.expected_threads is not None and record["threads"] != args.expected_threads:
+        raise ValueError(f"{path}: expected {args.expected_threads} threads, saw {record['threads']}")
+      if expected_cpus is not None and record["cpu_ids"] != expected_cpus:
+        raise ValueError(f"{path}: effective CPU placement differs from requested CPU list")
       record["log"] = str(path)
       records.append(record)
     print(json.dumps(summarize(records), indent=2))

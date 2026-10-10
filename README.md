@@ -6,7 +6,7 @@ HPC Atlas is a **GitHub Copilot CLI Custom agent** plus a set of reusable skills
 
 The skills are plain Markdown. Copilot can run them, and anyone can read them and follow along by hand.
 
-> **Status:** HPC Atlas started as a Microsoft Global Hackathon 2026 project. Full coverage is currently limited to full-size HBv4 and HX, and a few workloads. HBv5 specifications and topology references are available; workload validation remains pending. See [Supported VMs](#supported-vms) and [Roadmap](#roadmap).
+> **Status:** HPC Atlas started as a Microsoft Global Hackathon 2026 project. Full coverage is currently limited to full-size HBv4 and HX, and a few workloads. HBv5 specifications, topology references, and a single-VM STREAM recipe/reference are available; other workload validation remains pending. See [Supported VMs](#supported-vms) and [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -76,7 +76,7 @@ Every investigation ends with a verdict:
 ## Supported VMs
 
 - **Full coverage:** full-size HBv4 and HX (`Standard_HB176*_v4`, `Standard_HX176*`), e.g. `Standard_HB176rs_v4`, `Standard_HX176rs`
-- **Limited coverage:** HBv5 specifications, measured guest signature validation, and supplied CCD membership for `Standard_HB368rs_v5`; workload validation remains pending
+- **Limited coverage:** HBv5 specifications, measured guest signature validation, supplied CCD membership, and a measured STREAM recipe/reference for `Standard_HB368rs_v5`; other workload validation remains pending
 - **General guidance only:** constrained-core sizes (e.g. `Standard_HB176-144rs_v4`) and other HPC families
 
 Each workload skill states its own validated scope.

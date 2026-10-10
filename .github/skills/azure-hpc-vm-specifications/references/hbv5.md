@@ -1,6 +1,6 @@
 # HBv5 specifications
 
-Published specifications for HBv5. The separate `azure-hbv5-368-topology` skill contains the measured full-size guest signature and supplied host NUMA/CCD membership. HBv5 workload benchmarks remain unvalidated here.
+Published specifications for HBv5. The separate `azure-hbv5-368-topology` skill contains the measured full-size guest signature and supplied host NUMA/CCD membership. A separate [STREAM recipe and single-VM reference](../../stream-performance/references/stream-reference-hbv5.md) is available; other workload benchmarks remain unvalidated here.
 
 ## Hardware
 
