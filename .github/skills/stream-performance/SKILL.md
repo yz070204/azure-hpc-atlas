@@ -45,7 +45,7 @@ so rather than comparing to an HBv4 number.
 AOCC 4.0.0, 560M doubles/array, 100 iterations, **176 threads**, `GOMP_CPU_AFFINITY=0-175`,
 THP `always` (HBv4/HX; other families use their own thread/affinity recipe automatically).
 For HBv5 use **368 threads**, `GOMP_CPU_AFFINITY=0-367`; keep 560M as the
-shared default, not a claim that it meets a published HBv5 target.
+shared default.
 Reuse a binary with matching arrays/iterations and compiler details in `build.json`;
 build only if missing or parameters differ. `build-stream.sh` takes `$WORK_ROOT` as
 its first argument (optional second: numeric array elements), installs AOCC and
@@ -98,41 +98,3 @@ Triad on HBv4/HX (see [reference](references/stream-reference-hbv4-hx.md)). Offe
 176 the default — the runner does not execute it; the mask is documented in the reference.
 Do **not** suggest shrinking the array to get a bigger number — that's cache inflation,
 not real bandwidth, and would drift the reported figure away from Azure's published specs.
-
-## HBv5 arrays, placement and MLC cross-check
-
-Keep **368/all-core** as default. Optional `ccd-balanced` selects 288 threads,
-six per CCD; `ccd-balanced-7` selects 336, seven per CCD, excluding offsets 0
-and 8 from each 23-vCPU NUMA block. These modes are full-size HBv5 only.
-The runner raises the OpenMP thread limit above 256 as needed. At 560M, 336
-improved best-iteration Triad by 2.4% over matched all-core, but average-time
-performance was not clearly better than 288. See the reference for all-core
-and balanced results at each measured size.
-
-```bash
-bash "$SKILL_DIR/scripts/build-stream.sh" "$WORK_ROOT" 805306368
-bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT" hbv5 3
-bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT" hbv5 3 ccd-balanced
-# Seven/CCD was measured only at 560M:
-bash "$SKILL_DIR/scripts/build-stream.sh" "$WORK_ROOT" 560000000
-bash "$SKILL_DIR/scripts/run-stream.sh" "$WORK_ROOT" hbv5 3 ccd-balanced-7
-```
-
-HBv5 has 48 x 32 MiB LLC; the strict per-array 4x-LLC size is
-**805,306,368 doubles** (6 GiB per array). 560M and 280M are below that criterion;
-label sizes separately, interleave matched comparisons, and restore the default
-binary afterward. Do not shrink arrays to claim more hardware bandwidth.
-On this Ubuntu HBv5 at 560M/100 and 336 threads, 8192M worker stacks or disabling
-NUMA balancing showed no meaningful gain; retain defaults.
-
-**MLC 3.13 W10 (STREAM-triad-like)** measured 6.771 TB/s at 368 threads and
-6.738 TB/s at 336, with explicit 2 MiB HugeTLB pages; W7 measured 6.662/6.591.
-W7 reads twice from one buffer; W10 uses separate read buffers; both use a
-non-temporal write and neither executes STREAM's numerical computation.
-`--loaded_latency -T` measures throughput only; uppercase `-W` selects traffic.
-Keep MLC results separate from STREAM targets; they do not isolate OS or page-size
-effects. Version, commands, median/ranges and verified backing are in the reference.
-MLC is a manual cross-check, not an automatic runner step: ask before installing,
-reserving pages, changing NUMA policy or applying TuneD. For approved runs, verify
-idle load, use `-e` to leave prefetchers unchanged, check actual affinity/backing,
-and restore original per-node reservations on exit.
