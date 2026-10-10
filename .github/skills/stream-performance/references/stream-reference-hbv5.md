@@ -27,9 +27,6 @@ STREAM best-iteration rates, decimal TB/s, median of three runs.
 | 800M | 336, seven/CCD* | 5.96 | 5.95 | 6.45 | 6.42 |
 | 800M | 288, six/CCD | 5.84 | 5.89 | 6.24 | 6.18 |
 
-\* Measured in separate batches. Average-time rates showed no clear winner
-between 336 and 288. Keep all-core as default.
-
 ## MLC Stream-Triad Results
 
 Intel MLC 3.13 `--loaded_latency -W10` (STREAM-Triad-like traffic, 2 MiB pages),
