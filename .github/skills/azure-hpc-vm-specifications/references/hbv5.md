@@ -14,7 +14,7 @@ Published specifications for HBv5. The separate `azure-hbv5-368-topology` skill 
 | Memory bandwidth | Up to 6.7 TB/s; smaller-size limits below |
 | L3 cache | 1.5 GB in the size table; 32 MB per CCD in the overview |
 | Temp disk | One 480 GiB SSD |
-| Local NVMe | Eight devices; conflicting capacities below |
+| Local NVMe | Eight devices; 14,304 GiB total (size table) |
 | Azure Ethernet | Up to 180 Gb/s aggregate; up to eight vNICs |
 | InfiniBand | Four 200 Gb/s ConnectX-7 NDR adapters; 800 Gb/s aggregate, SR-IOV/RDMA |
 | Accelerators | None |
@@ -47,7 +47,7 @@ The overview's table lists 16 vNUMA nodes for every size. Memory, cache, network
 
 The eight NVMe devices are unformatted blocks that bypass the hypervisor. Striped together, Microsoft reports up to 50 GB/s read and 30 GB/s write, not per-device limits.
 
-**NVMe capacity conflict:** the size table lists 14,304 GiB; its host table says 14.304 TiB and 1.9 TB/disk; the introduction says 14.3 TiB. The overview says 15 TiB total and eight 1.8 TB disks. Quote the source rather than choosing a reconciled capacity. Check live devices with `lsblk -b -d -o NAME,SIZE,MODEL`.
+**NVMe readiness:** compare `lsblk -b -d -o NAME,SIZE,MODEL` with eight devices totaling 14,304 GiB (bytes / 2^30). Flag only live count/capacity mismatches, not documentation rounding or unit-label differences; omit those from routine reports.
 
 The overview describes 200 Gb/s Ethernet hardware with **180 Gb/s Accelerated Networking**. InfiniBand has one NIC per socket; check all four adapters. **800 Gb/s is aggregate, not a single-port rate.** Features include Adaptive Routing, DCT/RC/UD, MPI collective offload, and a nonblocking fat-tree fabric.
 
