@@ -1,10 +1,8 @@
 # HPC Atlas
 
-**SKU-Aware Readiness and Performance Agent for HPC VMs, with domain knowledge as skills.**
 
-HPC Atlas is a **GitHub Copilot CLI Custom agent** plus a set of reusable skills that package the Azure HPC team's experience: readiness checks, topology validation, benchmark-driven performance tuning, and evidence-based triage that separates software or configuration issues from possible platform or node-health issues.
+HPC Atlas is a **GitHub Copilot CLI Custom agent** plus a set of reusable skills that package the H-Series experience: readiness checks, topology validation, simple benchmarking, and evidence-based triage that separates software or configuration issues from possible platform or node-health issues.
 
-The skills are plain Markdown. Copilot can run them, and anyone can read them and follow along by hand.
 
 > **Status:** HPC Atlas started as a Microsoft Global Hackathon 2026 project. Full coverage is currently limited to full-size HBv4 and HX, and a few workloads. HBv5 specifications, topology references, and a single-VM STREAM recipe/reference are available; other workload validation remains pending. See [Supported VMs](#supported-vms) and [Roadmap](#roadmap).
 
@@ -62,7 +60,7 @@ copilot -C ./azure-hpc-atlas --agent hpc-atlas --yolo
 | Topology | Full-size HBv4/HX and HBv5 guest signature validation, with separate host/CCD references |
 | STREAM | Builds and runs STREAM with the SKU's compiler flags and pinning, and compares against the published reference |
 | WRF | Builds and runs the CONUS 2.5 km benchmark with a validated single-node recipe |
-| General optimization | Profiles and tunes workloads without a dedicated skill: ranks and threads, pinning, MPI transport, compiler flags, I/O |
+| General optimization | Profiles and tunes workloads without a dedicated skill: ranks and threads, pinning, MPI transport, compiler flags, I/O. Currently work in progress |
 | Specifications | Answers factual questions about HBv4, HX, and HBv5 sizes and capabilities |
 
 Every investigation ends with a verdict:
@@ -107,7 +105,7 @@ Everything is readable on its own. Open a skill's `SKILL.md`, follow the steps, 
     azure-hbv5-368-topology/           # measured guest/CCD reference and shared checker command
     stream-performance/                # STREAM build, run, summarize, reference targets
     wrf-performance/                   # WRF build, CONUS run, output comparison
-    hpc-atlas-workload-optimization/   # tuning for workloads without a dedicated skill
+    hpc-atlas-workload-optimization/   # tuning for workloads without a dedicated skill - WIP
 ```
 
 ## Roadmap
