@@ -13,6 +13,10 @@ Read only the reference for the requested family; read both for a comparison.
 | HBv4 / HX | [HBv4 and HX](references/hbv4-hx.md) | `azure-hbv4-hx176-topology` |
 | HBv5 | [HBv5](references/hbv5.md) | `azure-hbv5-368-topology` |
 
+## InfiniBand capability gate (Azure H-series)
+
+The `r` size suffix denotes RDMA/InfiniBand capability across Azure H-series. Sizes without `r` are not InfiniBand-enabled; installing an HPC image or RDMA drivers does not add that capability. If InfiniBand is required but the detected size lacks `r`, classify `capability-mismatch` and stop before IB diagnostics or benchmarks. Recommend only documented public IB-enabled sizes within this advisor's supported scope. This naming rule does not extend topology or workload validation to other sizes or families.
+
 ## Shared features
 
 All three families support Generation 2, Accelerated Networking, ephemeral OS disks, and Premium Storage with caching. Generation 1, live migration, memory-preserving updates, and nested virtualization are not supported.
